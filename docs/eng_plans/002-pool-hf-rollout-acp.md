@@ -93,6 +93,8 @@ That is useful if ACP integration blocks, but it is not the preferred path.
 
 The exact `pool --agent-server ... exec ...` syntax must be verified during the first spike. The README confirms that `pool --agent-server` can connect to arbitrary ACP servers, and `pool exec` can run non-interactively.
 
+Pool should run inside disposable task sandboxes, not inside repo templates or the project source tree. Task manifests, repo templates, public tests, and hidden graders are defined in [RFC 007: Real Repo Task Environments](../rfcs/007-real-repo-task-environments.md).
+
 ## Artifacts
 
 Each rollout writes project-owned artifacts, independent of pool's own logs:

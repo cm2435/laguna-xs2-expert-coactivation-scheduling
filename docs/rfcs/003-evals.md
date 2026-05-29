@@ -93,6 +93,8 @@ captured pool turns
 repo bug-fix microtasks
 ```
 
+Repo tasks must run in disposable sandboxes created from clean repo templates, with hidden graders kept outside the model-visible workspace. See [RFC 007: Real Repo Task Environments](007-real-repo-task-environments.md).
+
 Metrics:
 
 ```text
@@ -244,4 +246,3 @@ Plots:
 - Do later layers matter more for coding quality?
 - Does a partial densification strategy outperform full replacement?
 - Does lower memory translate into useful local/device serving?
-
