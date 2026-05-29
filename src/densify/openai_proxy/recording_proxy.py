@@ -12,7 +12,8 @@ from typing import Any
 from densify.run_artifacts import append_jsonl, write_json
 
 AGENT_ID = "00000000-0000-4000-8000-000000000001"
-MODEL_ID = "hf-laguna-probe"
+MODEL_ID = "00000000-0000-4000-8000-000000000002"
+MODEL_NAME = "hf-laguna-probe"
 SANDBOX_ID = "00000000-0000-4000-8000-000000000003"
 SESSION_ID = "00000000-0000-4000-8000-000000000004"
 
@@ -36,7 +37,7 @@ class ProxyCallRecord:
 def model_summary() -> dict[str, Any]:
     return {
         "id": MODEL_ID,
-        "name": MODEL_ID,
+        "name": MODEL_NAME,
         "display_name": "vLLM Laguna",
         "context_window": 131072,
     }
