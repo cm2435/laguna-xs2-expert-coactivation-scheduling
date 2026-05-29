@@ -1,4 +1,4 @@
-model_id: poolside/Laguna-XS.2-FP8
+model_id: poolside/Laguna-XS.2
 torch_dtype: bfloat16
 trust_remote_code: true
 device_map: auto

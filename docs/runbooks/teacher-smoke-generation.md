@@ -15,6 +15,11 @@ uv run python scripts/smoke_load_teacher.py --config configs/teacher_smoke_h100.
 uv run python scripts/run_teacher_smoke_eval.py --config configs/teacher_smoke_h100.yaml --limit 5
 ```
 
+The default H100/B300 config uses the `poolside/Laguna-XS.2` BF16 checkpoint. Use
+`poolside/Laguna-XS.2-FP8` only for serving-runtime experiments; the HF/PyTorch
+training scaffold needs ordinary BF16/FP16 matmuls for hooks, gradients, and layer
+replacement.
+
 Pass-gate run:
 
 ```bash
