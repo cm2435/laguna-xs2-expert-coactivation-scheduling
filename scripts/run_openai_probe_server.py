@@ -35,15 +35,27 @@ class ProbeHandler(BaseHTTPRequestHandler):
             self.write_json(200, self.model_summary())
             return
         if "/sandbox-definitions" in self.path:
+            sandbox_definition = {
+                "id": "00000000-0000-4000-8000-000000000003",
+                "sandbox_definition_id": "00000000-0000-4000-8000-000000000003",
+                "sandboxDefinitionId": "00000000-0000-4000-8000-000000000003",
+                "name": "localhost",
+                "display_name": "Local",
+                "displayName": "Local",
+                "execution_environment_type": "localhost",
+                "executionEnvironmentType": "localhost",
+                "execution_environment_id": "localhost",
+                "executionEnvironmentId": "localhost",
+                "enabled": True,
+                "Enabled": True,
+            }
             self.write_json(
                 200,
                 {
-                    "localhost": {
-                        "id": "00000000-0000-4000-8000-000000000003",
-                        "name": "localhost",
-                        "execution_environment_type": "localhost",
-                        "enabled": True,
-                    }
+                    "localhost": sandbox_definition,
+                    "Local": sandbox_definition,
+                    "sandbox_definitions": [sandbox_definition],
+                    "sandboxDefinitions": [sandbox_definition],
                 },
             )
             return
