@@ -90,6 +90,17 @@ class ProbeHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(int(self.headers.get("content-length", "0")))
         payload: Any = json.loads(body or b"{}")
         self.log_payload({"method": "POST", "path": self.path, "payload": payload})
+        if self.path.endswith("/sessions"):
+            self.write_json(
+                200,
+                {
+                    "id": "00000000-0000-4000-8000-000000000004",
+                    "agent_session_id": "00000000-0000-4000-8000-000000000004",
+                    "status": "running",
+                    "type": payload.get("type", "local"),
+                },
+            )
+            return
         if self.path == "/v1/chat/completions":
             self.write_json(
                 200,
