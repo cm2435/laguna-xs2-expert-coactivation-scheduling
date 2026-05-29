@@ -21,7 +21,7 @@ class ProbeHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         self.log_payload({"method": "GET", "path": self.path})
         if self.path.startswith("/v1/v0/agents?"):
-            self.write_json(200, self.agent_summary())
+            self.write_json(200, [self.agent_summary()])
             return
         if self.path == "/v1/v0/agents":
             self.write_json(200, [self.agent_summary()])
