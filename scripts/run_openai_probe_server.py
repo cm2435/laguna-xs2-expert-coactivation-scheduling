@@ -37,14 +37,14 @@ class ProbeHandler(BaseHTTPRequestHandler):
         if "/sandbox-definitions" in self.path:
             self.write_json(
                 200,
-                [
-                    {
+                {
+                    "localhost": {
                         "id": "00000000-0000-4000-8000-000000000003",
                         "name": "localhost",
                         "execution_environment_type": "localhost",
                         "enabled": True,
                     }
-                ],
+                },
             )
             return
         if self.path.startswith("/v1/v0/agents/"):
