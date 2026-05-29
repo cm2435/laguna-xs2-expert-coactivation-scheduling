@@ -1,0 +1,28 @@
+task_id: django__django-13128
+suite: swebench_verified
+repo: django/django
+repo_id: django__django
+base_commit: 2d67222472f80f251607ae1b720527afceba06ad
+problem_statement: "make temporal subtraction work without ExpressionWrapper\nDescription\n\
+  \t\nclass Experiment(models.Model):\n\tstart = models.DateTimeField()\n\tend = models.DateTimeField()\n\
+  Experiment.objects.annotate(\n\tdelta=F('end') - F('start') + Value(datetime.timedelta(),\
+  \ output_field=DurationField())\n)\nThis gives:\ndjango.core.exceptions.FieldError:\
+  \ Expression contains mixed types: DateTimeField, DurationField. You must set output_field.\n"
+visible_to_model:
+  issue_statement: true
+  public_tests: false
+  hidden_tests: false
+environment:
+  template_path: envs/repo_templates/django__django/2d67222472f80f251607ae1b720527afceba06ad/repo
+  setup_command: python -m pip install -e .
+  smoke_command: ''
+grader:
+  hidden_command: uv run python scripts/grade_task_sandbox.py --task tasks/swebench_verified/django__django-13128.yaml
+    --sandbox {sandbox}
+limits:
+  timeout_s: 1800
+  max_turns: 30
+  network: disabled
+metadata:
+  dataset: princeton-nlp/SWE-bench_Verified
+  instance_id: django__django-13128

@@ -1,0 +1,18 @@
+dataset: princeton-nlp/SWE-bench_Verified
+split: test
+output_dir: tasks/swebench_verified_balanced_100
+registry_path: tasks/registry_balanced_100.jsonl
+target_total: 100
+repos:
+  django/django: 25
+  sympy/sympy: 15
+  sphinx-doc/sphinx: 10
+  matplotlib/matplotlib: 10
+  scikit-learn/scikit-learn: 10
+  astropy/astropy: 8
+  pydata/xarray: 8
+  pytest-dev/pytest: 6
+  pylint-dev/pylint: 4
+  psf/requests: 2
+  mwaskom/seaborn: 1
+  pallets/flask: 1

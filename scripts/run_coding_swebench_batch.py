@@ -14,12 +14,15 @@ def main() -> None:
     parser.add_argument("--model", default="laguna")
     parser.add_argument("--output-dir", default="runs/coding_harness_rollouts")
     parser.add_argument("--sandbox-root", default="sandboxes/coding_harness")
+    parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--max-turns", type=int, default=40)
     parser.add_argument("--temperature", type=float, default=0.0)
     args = parser.parse_args()
 
     manifests = iter_registry(args.registry)
+    if args.offset:
+        manifests = manifests[args.offset :]
     if args.limit is not None:
         manifests = manifests[: args.limit]
 

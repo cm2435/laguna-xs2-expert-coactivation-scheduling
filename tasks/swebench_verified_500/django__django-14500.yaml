@@ -1,0 +1,27 @@
+task_id: django__django-14500
+suite: swebench_verified
+repo: django/django
+repo_id: django__django
+base_commit: 8c3bd0b708b488a1f6e8bd8cc6b96569904605be
+problem_statement: "Squashed migration is not marked as unapplied\nDescription\n\t\
+  \ \n\t\t(last modified by Markus Holtermann)\n\t \nWhen unapplying a squashed migration\
+  \ and the replaced migration files are still around, the MigrationExecutor mark\
+  \ the squash migration as unapplied, too, not only the replaced migrations.\n"
+visible_to_model:
+  issue_statement: true
+  public_tests: false
+  hidden_tests: false
+environment:
+  template_path: envs/repo_templates/django__django/8c3bd0b708b488a1f6e8bd8cc6b96569904605be/repo
+  setup_command: python -m pip install -e .
+  smoke_command: ''
+grader:
+  hidden_command: uv run python scripts/grade_task_sandbox.py --task tasks/swebench_verified/django__django-14500.yaml
+    --sandbox {sandbox}
+limits:
+  timeout_s: 1800
+  max_turns: 30
+  network: disabled
+metadata:
+  dataset: princeton-nlp/SWE-bench_Verified
+  instance_id: django__django-14500

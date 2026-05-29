@@ -1,0 +1,27 @@
+task_id: django__django-16642
+suite: swebench_verified
+repo: django/django
+repo_id: django__django
+base_commit: fbe850106b2e4b85f838219cb9e1df95fba6c164
+problem_statement: "Improper guessing of Mime Type for \"br\" and \"Z\" file types\n\
+  Description\n\t\nBelow FileResponse will set the content type as text/html, even\
+  \ if the last file extension is \"Z' or \"br\".\nFileResponse(open('test.html.Z',\
+  \ 'rb'))\nFileResponse(open('test.html.br', 'rb'))\n"
+visible_to_model:
+  issue_statement: true
+  public_tests: false
+  hidden_tests: false
+environment:
+  template_path: envs/repo_templates/django__django/fbe850106b2e4b85f838219cb9e1df95fba6c164/repo
+  setup_command: python -m pip install -e .
+  smoke_command: ''
+grader:
+  hidden_command: uv run python scripts/grade_task_sandbox.py --task tasks/swebench_verified/django__django-16642.yaml
+    --sandbox {sandbox}
+limits:
+  timeout_s: 1800
+  max_turns: 30
+  network: disabled
+metadata:
+  dataset: princeton-nlp/SWE-bench_Verified
+  instance_id: django__django-16642

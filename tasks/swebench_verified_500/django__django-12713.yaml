@@ -1,0 +1,27 @@
+task_id: django__django-12713
+suite: swebench_verified
+repo: django/django
+repo_id: django__django
+base_commit: 5b884d45ac5b76234eca614d90c83b347294c332
+problem_statement: "Allow overridding widget in formfield_for_manytomany().\nDescription\n\
+  \t \n\t\t(last modified by Mariusz Felisiak)\n\t \nIt does not work when I set widget\
+  \ param to function formfield_for_manytomany().\nThis is different from the formfield_for_foreignkey()\
+  \ function.\n"
+visible_to_model:
+  issue_statement: true
+  public_tests: false
+  hidden_tests: false
+environment:
+  template_path: envs/repo_templates/django__django/5b884d45ac5b76234eca614d90c83b347294c332/repo
+  setup_command: python -m pip install -e .
+  smoke_command: ''
+grader:
+  hidden_command: uv run python scripts/grade_task_sandbox.py --task tasks/swebench_verified/django__django-12713.yaml
+    --sandbox {sandbox}
+limits:
+  timeout_s: 1800
+  max_turns: 30
+  network: disabled
+metadata:
+  dataset: princeton-nlp/SWE-bench_Verified
+  instance_id: django__django-12713

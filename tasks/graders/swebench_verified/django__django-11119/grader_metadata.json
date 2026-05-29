@@ -1,0 +1,9 @@
+{
+  "task_id": "django__django-11119",
+  "repo": "django/django",
+  "base_commit": "d4df5e1b0b1c643fe0fc521add0236764ec8e92a",
+  "test_patch": "diff --git a/tests/template_tests/test_engine.py b/tests/template_tests/test_engine.py\n--- a/tests/template_tests/test_engine.py\n+++ b/tests/template_tests/test_engine.py\n@@ -21,6 +21,13 @@ def test_basic_context(self):\n             'obj:test\\n',\n         )\n \n+    def test_autoescape_off(self):\n+        engine = Engine(dirs=[TEMPLATE_DIR], autoescape=False)\n+        self.assertEqual(\n+            engine.render_to_string('test_context.html', {'obj': '<script>'}),\n+            'obj:<script>\\n',\n+        )\n+\n \n class GetDefaultTests(SimpleTestCase):\n \n",
+  "patch": "diff --git a/django/template/engine.py b/django/template/engine.py\n--- a/django/template/engine.py\n+++ b/django/template/engine.py\n@@ -160,7 +160,7 @@ def render_to_string(self, template_name, context=None):\n         if isinstance(context, Context):\n             return t.render(context)\n         else:\n-            return t.render(Context(context))\n+            return t.render(Context(context, autoescape=self.autoescape))\n \n     def select_template(self, template_name_list):\n         \"\"\"\n",
+  "FAIL_TO_PASS": "[\"test_autoescape_off (template_tests.test_engine.RenderToStringTest)\"]",
+  "PASS_TO_PASS": "[\"test_cached_loader_priority (template_tests.test_engine.LoaderTests)\", \"test_loader_priority (template_tests.test_engine.LoaderTests)\", \"test_origin (template_tests.test_engine.LoaderTests)\", \"test_basic_context (template_tests.test_engine.RenderToStringTest)\", \"test_multiple_engines_configured (template_tests.test_engine.GetDefaultTests)\", \"test_no_engines_configured (template_tests.test_engine.GetDefaultTests)\", \"test_single_engine_configured (template_tests.test_engine.GetDefaultTests)\"]"
+}

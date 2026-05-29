@@ -1,0 +1,9 @@
+{
+  "task_id": "django__django-12419",
+  "repo": "django/django",
+  "base_commit": "7fa1a93c6c8109010a6ff3f604fda83b604e0e97",
+  "test_patch": "diff --git a/tests/project_template/test_settings.py b/tests/project_template/test_settings.py\n--- a/tests/project_template/test_settings.py\n+++ b/tests/project_template/test_settings.py\n@@ -38,6 +38,7 @@ def test_middleware_headers(self):\n             self.assertEqual(headers, [\n                 b'Content-Length: 0',\n                 b'Content-Type: text/html; charset=utf-8',\n+                b'Referrer-Policy: same-origin',\n                 b'X-Content-Type-Options: nosniff',\n                 b'X-Frame-Options: DENY',\n             ])\n",
+  "patch": "diff --git a/django/conf/global_settings.py b/django/conf/global_settings.py\n--- a/django/conf/global_settings.py\n+++ b/django/conf/global_settings.py\n@@ -637,6 +637,6 @@ def gettext_noop(s):\n SECURE_HSTS_PRELOAD = False\n SECURE_HSTS_SECONDS = 0\n SECURE_REDIRECT_EXEMPT = []\n-SECURE_REFERRER_POLICY = None\n+SECURE_REFERRER_POLICY = 'same-origin'\n SECURE_SSL_HOST = None\n SECURE_SSL_REDIRECT = False\n",
+  "FAIL_TO_PASS": "[\"test_middleware_headers (project_template.test_settings.TestStartProjectSettings)\"]",
+  "PASS_TO_PASS": "[]"
+}

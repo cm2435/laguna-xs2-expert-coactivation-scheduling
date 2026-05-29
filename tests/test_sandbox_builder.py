@@ -48,3 +48,42 @@ limits:
     assert "shell:" in settings.read_text(encoding="utf-8")
     assert result.repo_dirty is True
     assert (sandbox.root / "patch.diff").read_text(encoding="utf-8")
+
+
+def test_grade_exports_binary_patch_without_decoding(tmp_path):
+    template = tmp_path / "template" / "repo"
+    template.mkdir(parents=True)
+    subprocess.run(["git", "init"], cwd=template, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=template, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=template, check=True)
+    (template / "data.bin").write_bytes(bytes([0, 1, 2, 255]))
+    subprocess.run(["git", "add", "data.bin"], cwd=template, check=True)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=template, check=True, capture_output=True)
+
+    task_path = tmp_path / "task.yaml"
+    task_path.write_text(
+        f"""
+task_id: binary
+suite: synthetic
+repo: owner/repo
+repo_id: owner__repo
+base_commit: local
+problem_statement: fix it
+environment:
+  template_path: {template}
+grader:
+  hidden_command: echo hidden
+limits:
+  timeout_s: 10
+  max_turns: 2
+""",
+        encoding="utf-8",
+    )
+    task = load_task_manifest(task_path)
+
+    sandbox = prepare_sandbox(task, "run-binary", tmp_path / "sandboxes")
+    (sandbox.repo / "data.bin").write_bytes(bytes([0, 1, 2, 212, 255]))
+    result = grade_sandbox(task, sandbox.root)
+
+    assert result.repo_dirty is True
+    assert (sandbox.root / "patch.diff").read_bytes()

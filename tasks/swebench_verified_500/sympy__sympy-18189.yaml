@@ -1,0 +1,32 @@
+task_id: sympy__sympy-18189
+suite: swebench_verified
+repo: sympy/sympy
+repo_id: sympy__sympy
+base_commit: 1923822ddf8265199dbd9ef9ce09641d3fd042b9
+problem_statement: "diophantine: incomplete results depending on syms order with permute=True\n\
+  ```\r\nIn [10]: diophantine(n**4 + m**4 - 2**4 - 3**4, syms=(m,n), permute=True)\r\
+  \nOut[10]: {(-3, -2), (-3, 2), (-2, -3), (-2, 3), (2, -3), (2, 3), (3, -2), (3,\
+  \ 2)}\r\n\r\nIn [11]: diophantine(n**4 + m**4 - 2**4 - 3**4, syms=(n,m), permute=True)\r\
+  \nOut[11]: {(3, 2)}\r\n```\r\n\ndiophantine: incomplete results depending on syms\
+  \ order with permute=True\n```\r\nIn [10]: diophantine(n**4 + m**4 - 2**4 - 3**4,\
+  \ syms=(m,n), permute=True)\r\nOut[10]: {(-3, -2), (-3, 2), (-2, -3), (-2, 3), (2,\
+  \ -3), (2, 3), (3, -2), (3, 2)}\r\n\r\nIn [11]: diophantine(n**4 + m**4 - 2**4 -\
+  \ 3**4, syms=(n,m), permute=True)\r\nOut[11]: {(3, 2)}\r\n```\r\n\n"
+visible_to_model:
+  issue_statement: true
+  public_tests: false
+  hidden_tests: false
+environment:
+  template_path: envs/repo_templates/sympy__sympy/1923822ddf8265199dbd9ef9ce09641d3fd042b9/repo
+  setup_command: python -m pip install -e .
+  smoke_command: ''
+grader:
+  hidden_command: uv run python scripts/grade_task_sandbox.py --task tasks/swebench_verified/sympy__sympy-18189.yaml
+    --sandbox {sandbox}
+limits:
+  timeout_s: 1800
+  max_turns: 30
+  network: disabled
+metadata:
+  dataset: princeton-nlp/SWE-bench_Verified
+  instance_id: sympy__sympy-18189

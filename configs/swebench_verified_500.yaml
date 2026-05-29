@@ -1,0 +1,6 @@
+dataset: princeton-nlp/SWE-bench_Verified
+split: test
+output_dir: tasks/swebench_verified_500
+registry_path: tasks/registry_500.jsonl
+target_total: 500
+all_tasks: true

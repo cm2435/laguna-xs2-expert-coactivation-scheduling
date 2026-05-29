@@ -1,0 +1,26 @@
+task_id: sympy__sympy-16886
+suite: swebench_verified
+repo: sympy/sympy
+repo_id: sympy__sympy
+base_commit: c50643a49811e9fe2f4851adff4313ad46f7325e
+problem_statement: "Morse encoding for \"1\" is not correct\nThe current Morse mapping\
+  \ in simpy.crypto.crypto contains an incorrect mapping of \r\n`\"----\": \"1\"`\
+  \   \r\n\r\nThe correct mapping is `\".----\": \"1\"`.\r\n\r\n\n"
+visible_to_model:
+  issue_statement: true
+  public_tests: false
+  hidden_tests: false
+environment:
+  template_path: envs/repo_templates/sympy__sympy/c50643a49811e9fe2f4851adff4313ad46f7325e/repo
+  setup_command: python -m pip install -e .
+  smoke_command: ''
+grader:
+  hidden_command: uv run python scripts/grade_task_sandbox.py --task tasks/swebench_verified/sympy__sympy-16886.yaml
+    --sandbox {sandbox}
+limits:
+  timeout_s: 1800
+  max_turns: 30
+  network: disabled
+metadata:
+  dataset: princeton-nlp/SWE-bench_Verified
+  instance_id: sympy__sympy-16886
