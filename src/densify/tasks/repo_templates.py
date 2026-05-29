@@ -10,6 +10,8 @@ from densify.tasks.manifest import TaskManifest, iter_registry, load_task_manife
 def prepare_repo_template(task: TaskManifest) -> Path:
     repo_path = task.environment.template_path
     if (repo_path / ".git").exists():
+        subprocess.run(["git", "-C", str(repo_path), "checkout", "--force", task.base_commit], check=True)
+        subprocess.run(["git", "-C", str(repo_path), "clean", "-fdx"], check=True)
         return repo_path
 
     repo_path.parent.mkdir(parents=True, exist_ok=True)

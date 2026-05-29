@@ -65,7 +65,7 @@ class ToolExecutor:
     def shell(self, command: str) -> ToolResult:
         if not command.strip():
             return ToolResult("shell", False, "missing command")
-        if self.is_blocked_shell_command(command):
+        if self.is_blocked_git_command_text(command) or self.is_blocked_shell_command(command):
             return ToolResult(
                 "shell",
                 False,
@@ -88,6 +88,20 @@ class ToolExecutor:
             return ToolResult("shell", False, self.limit_output(output + "\n[TIMEOUT]"), None)
         output = self.limit_output((result.stdout or "") + (result.stderr or ""))
         return ToolResult("shell", result.returncode == 0, output, result.returncode)
+
+    def is_blocked_git_command_text(self, command: str) -> bool:
+        blocked_needles = (
+            "git checkout",
+            "git switch",
+            "git reset",
+            "git clean",
+            "git restore",
+        )
+        normalized = " ".join(command.strip().split())
+        return any(
+            normalized == needle or f" {needle} " in f" {normalized} "
+            for needle in blocked_needles
+        )
 
     def read_file(
         self,
