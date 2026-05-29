@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,19 @@ class ToolResult:
 
 
 class ToolExecutor:
+    BLOCKED_COMMAND_PREFIXES = (
+        ("pip", "install"),
+        ("pip3", "install"),
+        ("python", "-m", "pip", "install"),
+        ("python3", "-m", "pip", "install"),
+        ("uv", "pip", "install"),
+        ("apt", "install"),
+        ("apt-get", "install"),
+        ("apt-get", "update"),
+        ("conda", "install"),
+        ("mamba", "install"),
+    )
+
     def __init__(
         self,
         repo: str | Path,
@@ -46,6 +60,13 @@ class ToolExecutor:
     def shell(self, command: str) -> ToolResult:
         if not command.strip():
             return ToolResult("shell", False, "missing command")
+        if self.is_blocked_shell_command(command):
+            return ToolResult(
+                "shell",
+                False,
+                "blocked command: package manager and system install commands are disabled "
+                "for rollouts. Inspect and edit the repo using existing tools.",
+            )
         try:
             result = subprocess.run(
                 command,
@@ -147,12 +168,25 @@ class ToolExecutor:
         target.write_text(text.replace(old, new, 1), encoding="utf-8")
 
     def resolve_repo_path(self, path: str) -> Path | None:
-        candidate = (self.repo / path).resolve()
+        raw = Path(path)
+        candidate = raw.resolve() if raw.is_absolute() else (self.repo / raw).resolve()
         try:
             candidate.relative_to(self.repo)
         except ValueError:
             return None
         return candidate
+
+    def is_blocked_shell_command(self, command: str) -> bool:
+        try:
+            parts = shlex.split(command)
+        except ValueError:
+            return False
+        if not parts:
+            return False
+        for prefix in self.BLOCKED_COMMAND_PREFIXES:
+            if tuple(parts[: len(prefix)]) == prefix:
+                return True
+        return False
 
     def limit_output(self, output: str) -> str:
         data = output.encode("utf-8", errors="replace")

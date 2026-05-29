@@ -40,6 +40,20 @@ def test_tool_executor_runs_shell_and_applies_patch(tmp_path):
     assert (repo / "hello.py").read_text(encoding="utf-8") == "VALUE = 2\n"
 
 
+def test_tool_executor_accepts_absolute_repo_paths_and_blocks_installs(tmp_path):
+    repo = tmp_path / "repo"
+    init_repo(repo)
+    executor = ToolExecutor(repo, command_timeout_s=5, output_limit_bytes=2048)
+
+    read = executor.execute("read_file", {"path": str(repo / "hello.py")})
+    assert read.ok is True
+    assert "VALUE = 1" in read.output
+
+    blocked = executor.execute("shell", {"command": "pip install pyerfa"})
+    assert blocked.ok is False
+    assert "blocked command" in blocked.output
+
+
 class DummyChatHandler(BaseHTTPRequestHandler):
     seen_payloads = []
     call_count = 0
