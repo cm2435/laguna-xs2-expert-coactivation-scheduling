@@ -34,6 +34,19 @@ class ProbeHandler(BaseHTTPRequestHandler):
         if self.path.startswith("/v1/v0/model/"):
             self.write_json(200, self.model_summary())
             return
+        if "/sandbox-definitions" in self.path:
+            self.write_json(
+                200,
+                [
+                    {
+                        "id": "00000000-0000-4000-8000-000000000003",
+                        "name": "localhost",
+                        "execution_environment_type": "localhost",
+                        "enabled": True,
+                    }
+                ],
+            )
+            return
         if self.path.startswith("/v1/v0/agents/"):
             self.write_json(200, self.agent_summary())
             return
