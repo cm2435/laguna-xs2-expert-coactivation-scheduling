@@ -11,6 +11,22 @@ class ProbeHandler(BaseHTTPRequestHandler):
     log_path: Path
 
     def do_GET(self) -> None:
+        self.log_payload({"method": "GET", "path": self.path})
+        if self.path == "/v1/v0/agents":
+            self.write_json(
+                200,
+                {
+                    "agents": [
+                        {
+                            "id": "default",
+                            "name": "default",
+                            "display_name": "HF Laguna Probe",
+                            "models": [{"id": "hf-laguna-probe", "name": "hf-laguna-probe"}],
+                        }
+                    ]
+                },
+            )
+            return
         if self.path == "/v1/models":
             self.write_json(
                 200,
@@ -32,7 +48,7 @@ class ProbeHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         body = self.rfile.read(int(self.headers.get("content-length", "0")))
         payload: Any = json.loads(body or b"{}")
-        self.log_payload(payload)
+        self.log_payload({"method": "POST", "path": self.path, "payload": payload})
         if self.path == "/v1/chat/completions":
             self.write_json(
                 200,
