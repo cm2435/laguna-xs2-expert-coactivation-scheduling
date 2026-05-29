@@ -11,11 +11,21 @@ class ProbeHandler(BaseHTTPRequestHandler):
     log_path: Path
 
     def agent_summary(self) -> dict[str, Any]:
+        agent_id = "00000000-0000-4000-8000-000000000001"
+        model_id = "00000000-0000-4000-8000-000000000002"
         return {
-            "id": "default",
+            "id": agent_id,
             "name": "default",
             "display_name": "HF Laguna Probe",
-            "models": [{"id": "hf-laguna-probe", "name": "hf-laguna-probe"}],
+            "default_model_id": model_id,
+            "model_id": model_id,
+            "models": [
+                {
+                    "id": model_id,
+                    "name": "hf-laguna-probe",
+                    "display_name": "HF Laguna Probe",
+                }
+            ],
         }
 
     def do_GET(self) -> None:
