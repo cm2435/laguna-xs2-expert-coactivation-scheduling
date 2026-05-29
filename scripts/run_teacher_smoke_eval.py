@@ -33,6 +33,7 @@ def main() -> None:
         torch_dtype=cfg.torch_dtype,
         trust_remote_code=cfg.trust_remote_code,
         device_map=cfg.device_map,
+        compressed_tensors_run_compressed=cfg.compressed_tensors_run_compressed,
     )
     architecture = architecture_summary(model, cfg.model_id, cfg.torch_dtype)
     write_json(run_dir / "architecture.json", architecture)

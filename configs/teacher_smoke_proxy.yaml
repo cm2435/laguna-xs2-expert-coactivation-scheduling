@@ -2,6 +2,7 @@ model_id: Qwen/Qwen1.5-MoE-A2.7B-Chat
 torch_dtype: bfloat16
 trust_remote_code: true
 device_map: auto
+compressed_tensors_run_compressed: false
 prompt_path: data/prompts/python_smoke.jsonl
 output_dir: runs/teacher_smoke_proxy
 generation:

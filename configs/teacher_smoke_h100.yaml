@@ -2,6 +2,7 @@ model_id: poolside/Laguna-XS.2-FP8
 torch_dtype: bfloat16
 trust_remote_code: true
 device_map: auto
+compressed_tensors_run_compressed: false
 prompt_path: data/prompts/python_smoke.jsonl
 output_dir: runs/teacher_smoke
 generation:

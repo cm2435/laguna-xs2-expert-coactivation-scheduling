@@ -22,6 +22,7 @@ class TeacherSmokeConfig:
     torch_dtype: str
     trust_remote_code: bool
     device_map: str
+    compressed_tensors_run_compressed: bool
     prompt_path: Path
     output_dir: Path
     generation: GenerationConfig
@@ -43,6 +44,9 @@ def load_teacher_smoke_config(path: str | Path) -> TeacherSmokeConfig:
         torch_dtype=str(raw.get("torch_dtype", "bfloat16")),
         trust_remote_code=bool(raw.get("trust_remote_code", True)),
         device_map=str(raw.get("device_map", "auto")),
+        compressed_tensors_run_compressed=bool(
+            raw.get("compressed_tensors_run_compressed", False)
+        ),
         prompt_path=Path(raw["prompt_path"]),
         output_dir=Path(raw["output_dir"]),
         generation=GenerationConfig(
