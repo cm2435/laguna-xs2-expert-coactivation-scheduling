@@ -173,6 +173,120 @@ Pick tasks that:
 - are not massive dependency traps,
 - exercise file reads/search/shell/edit loops.
 
+## Step 0: Serving Backend Ladder
+
+We should not treat HF/PyTorch as the only backend. HF is the instrumentation workbench; vLLM/SGLang are the likely serving targets for any final ToolSpec-style drafter.
+
+Therefore, before scaling rollout collection, run a backend compatibility ladder:
+
+```text
+HF/PyTorch backend
+  -> canonical instrumentation path
+  -> activation hooks
+  -> token tensors
+  -> easiest manual decode-loop prototype
+
+vLLM backend
+  -> OpenAI-compatible serving path
+  -> higher-throughput rollout generation
+  -> realistic latency and batching metrics
+  -> likely first production-style integration target
+
+SGLang backend
+  -> alternative high-performance serving path
+  -> useful if its decoding/control APIs are friendlier for speculative decoding
+```
+
+### Step 0A: HF Baseline
+
+Status: working.
+
+Use HF for:
+
+```text
+debugging pool request shape
+recording exact prompt/generation token tensors
+activation capture
+manual ToolSpec decode experiments
+```
+
+### Step 0B: vLLM Parity
+
+Set up vLLM to serve Laguna XS.2 behind an OpenAI-compatible endpoint.
+
+Run the same pool smoke prompt:
+
+```bash
+POOLSIDE_API_KEY=dummy pool exec \
+  --sandbox disabled \
+  --api-url http://127.0.0.1:<vllm_port>/v1 \
+  -a default \
+  -p "Reply with the single word READY." \
+  -o json
+```
+
+Compare against HF:
+
+```text
+does pool accept the endpoint?
+does Laguna load cleanly?
+does output need the same served_text cleanup?
+can we capture request/response text?
+can we recover token IDs from vLLM outputs?
+latency for the READY smoke call
+latency for a small coding prompt
+```
+
+If vLLM works, use it for high-throughput rollout collection when activation hooks are not needed. For activation traces, replay selected prompts through HF.
+
+### Step 0C: SGLang Parity
+
+Repeat the same endpoint smoke with SGLang.
+
+Evaluate:
+
+```text
+OpenAI endpoint compatibility with pool
+Laguna loading support
+streaming behavior
+token logging options
+manual/speculative decoding hooks
+batching behavior
+```
+
+SGLang becomes attractive if it exposes a cleaner path for constrained/speculative decoding than vLLM.
+
+### Backend Decision Rule
+
+Use HF when:
+
+```text
+we need activations
+we need exact token tensors
+we are implementing the first manual ToolSpec verifier loop
+we are debugging model formatting and pool compatibility
+```
+
+Use vLLM/SGLang when:
+
+```text
+we need rollout throughput
+we need realistic p50/p95 serving latency
+we are evaluating the final drafter in a production-style stack
+we are testing batched speculative decoding
+```
+
+The expected workflow is:
+
+```text
+1. collect small, deeply instrumented traces with HF
+2. prove vLLM/SGLang can serve the same pool calls
+3. use vLLM/SGLang for broader rollout collection if token logging is sufficient
+4. replay important traces through HF for activations
+5. implement online ToolSpec first where control is easiest
+6. port the winning drafter to vLLM/SGLang if the offline curves justify it
+```
+
 ## Trace Artifacts
 
 Each rollout should write:
@@ -394,7 +508,7 @@ limited token budget
 
 Do not let activation capture block rollout collection.
 
-## Backend Choice: HF vs vLLM
+## Backend Choice: HF vs vLLM/SGLang
 
 ### HF Backend
 
@@ -405,7 +519,7 @@ Use first because:
 - gives direct PyTorch hooks,
 - easiest for manual decode-loop experiments.
 
-### vLLM Backend
+### vLLM/SGLang Backend
 
 Consider later if:
 
@@ -414,7 +528,7 @@ Consider later if:
 - we can still get enough token/request logs,
 - speculative decoding hooks are easier or faster there.
 
-For ToolSpec, HF is probably better for the prototype because the hard part is not raw throughput. The hard part is controlling and instrumenting draft/verify behavior.
+For ToolSpec, HF is still probably better for the first prototype because the hard part is controlling and instrumenting draft/verify behavior. But vLLM/SGLang are part of the final artifact path: if the drafter cannot be made to run in a real serving stack, the result is less useful.
 
 ## Evaluation Metrics
 
