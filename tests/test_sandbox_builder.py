@@ -39,9 +39,12 @@ limits:
     task = load_task_manifest(task_path)
 
     sandbox = prepare_sandbox(task, "run1", tmp_path / "sandboxes")
+    settings = sandbox.repo / ".poolside" / "settings.local.yaml"
     (sandbox.repo / "hello.py").write_text("VALUE = 2\n", encoding="utf-8")
     result = grade_sandbox(task, sandbox.root)
 
     assert sandbox.repo.exists()
+    assert settings.exists()
+    assert "shell:" in settings.read_text(encoding="utf-8")
     assert result.repo_dirty is True
     assert (sandbox.root / "patch.diff").read_text(encoding="utf-8")
