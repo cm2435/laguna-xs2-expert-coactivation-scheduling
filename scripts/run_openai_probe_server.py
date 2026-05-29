@@ -12,24 +12,28 @@ class ProbeHandler(BaseHTTPRequestHandler):
 
     def agent_summary(self) -> dict[str, Any]:
         agent_id = "00000000-0000-4000-8000-000000000001"
-        model_id = "00000000-0000-4000-8000-000000000002"
         return {
             "id": agent_id,
             "name": "default",
             "display_name": "HF Laguna Probe",
-            "default_model_id": model_id,
-            "model_id": model_id,
-            "models": [
-                {
-                    "id": model_id,
-                    "name": "hf-laguna-probe",
-                    "display_name": "HF Laguna Probe",
-                }
-            ],
+            "default_model_id": self.model_summary()["id"],
+            "model_id": self.model_summary()["id"],
+            "models": [self.model_summary()],
+        }
+
+    def model_summary(self) -> dict[str, Any]:
+        return {
+            "id": "00000000-0000-4000-8000-000000000002",
+            "name": "hf-laguna-probe",
+            "display_name": "HF Laguna Probe",
+            "context_window": 131072,
         }
 
     def do_GET(self) -> None:
         self.log_payload({"method": "GET", "path": self.path})
+        if self.path.startswith("/v1/v0/model/"):
+            self.write_json(200, self.model_summary())
+            return
         if self.path.startswith("/v1/v0/agents/"):
             self.write_json(200, self.agent_summary())
             return
