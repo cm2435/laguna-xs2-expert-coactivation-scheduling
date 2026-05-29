@@ -31,6 +31,17 @@ class ProbeHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         self.log_payload({"method": "GET", "path": self.path})
+        if self.path == "/v1/v0/environment":
+            self.write_json(
+                200,
+                {
+                    "id": "localhost",
+                    "type": "localhost",
+                    "execution_environment_type": "localhost",
+                    "available": True,
+                },
+            )
+            return
         if self.path.startswith("/v1/v0/model/"):
             self.write_json(200, self.model_summary())
             return
@@ -101,7 +112,13 @@ class ProbeHandler(BaseHTTPRequestHandler):
                 },
             )
             return
-        if self.path == "/v1/chat/completions":
+        if self.path.endswith("/trajectory"):
+            self.write_json(200, {"ok": True})
+            return
+        if self.path.endswith("/chat/completions"):
+            if payload.get("stream"):
+                self.write_chat_completion_stream(payload)
+                return
             self.write_json(
                 200,
                 {
@@ -121,6 +138,43 @@ class ProbeHandler(BaseHTTPRequestHandler):
             )
             return
         self.write_json(404, {"error": {"message": f"unknown path: {self.path}"}})
+
+    def write_chat_completion_stream(self, payload: dict[str, Any]) -> None:
+        self.send_response(200)
+        self.send_header("content-type", "text/event-stream")
+        self.send_header("cache-control", "no-cache")
+        self.send_header("connection", "keep-alive")
+        self.end_headers()
+
+        model = payload.get("model", "hf-laguna-probe")
+        chunks = [
+            {
+                "id": "chatcmpl-probe",
+                "object": "chat.completion.chunk",
+                "created": 0,
+                "model": model,
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"role": "assistant", "content": "READY"},
+                        "finish_reason": None,
+                    }
+                ],
+            },
+            {
+                "id": "chatcmpl-probe",
+                "object": "chat.completion.chunk",
+                "created": 0,
+                "model": model,
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+            },
+        ]
+        for chunk in chunks:
+            self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode("utf-8"))
+            self.wfile.flush()
+        self.wfile.write(b"data: [DONE]\n\n")
+        self.wfile.flush()
 
     def write_json(self, status: int, payload: Any) -> None:
         data = json.dumps(payload).encode("utf-8")
