@@ -10,20 +10,21 @@ from typing import Any
 class ProbeHandler(BaseHTTPRequestHandler):
     log_path: Path
 
+    def agent_summary(self) -> dict[str, Any]:
+        return {
+            "id": "default",
+            "name": "default",
+            "display_name": "HF Laguna Probe",
+            "models": [{"id": "hf-laguna-probe", "name": "hf-laguna-probe"}],
+        }
+
     def do_GET(self) -> None:
         self.log_payload({"method": "GET", "path": self.path})
+        if self.path.startswith("/v1/v0/agents?"):
+            self.write_json(200, self.agent_summary())
+            return
         if self.path == "/v1/v0/agents":
-            self.write_json(
-                200,
-                [
-                    {
-                        "id": "default",
-                        "name": "default",
-                        "display_name": "HF Laguna Probe",
-                        "models": [{"id": "hf-laguna-probe", "name": "hf-laguna-probe"}],
-                    }
-                ],
-            )
+            self.write_json(200, [self.agent_summary()])
             return
         if self.path == "/v1/models":
             self.write_json(
