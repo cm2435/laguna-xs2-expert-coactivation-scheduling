@@ -18,6 +18,32 @@ We train the dense replacement blocks from teacher rollouts. During rollouts, we
 
 This is a model-compression / architecture-distillation project, not a serving-scheduler project.
 
+## Backend Strategy
+
+The primary backend for densification is **HF/PyTorch**, not a serving engine. The reason is simple: this project needs module introspection, forward hooks, gradients, and layer replacement. Those are natural in PyTorch and awkward inside vLLM/SGLang inference runtimes.
+
+The backend split is:
+
+```text
+HF/PyTorch
+  -> load teacher
+  -> inspect Laguna modules
+  -> capture x_layer and y_teacher
+  -> train dense surrogate layers
+  -> swap modules and assemble densified checkpoint
+
+SGLang / vLLM
+  -> optional high-throughput rollout generation
+  -> final inference throughput/memory benchmark
+  -> not the first training/capture path
+
+pool
+  -> optional coding-agent harness for realistic prompts
+  -> not the model backend for activation capture
+```
+
+The first end-to-end loop should run entirely in HF/PyTorch: prompt batch in, teacher forward/generation with hooks, activation shards out, train one surrogate, swap one layer, run smoke generation.
+
 ## Project Thesis
 
 Laguna XS.2 is a 33B-total / 3B-active MoE. The expert weights dominate model size and serving complexity. For a narrow coding distribution, the aggregate behavior of the routed expert mixture may be approximable by a much smaller dense MLP per layer. If so, we can distill the MoE into a dense coding-specialist variant.
@@ -257,4 +283,3 @@ Pivot if:
 - Full swap destroys basic language/code ability.
 - Dense surrogate compute is too large to improve serving.
 - Activation capture is too slow or storage-heavy for the available infra.
-
