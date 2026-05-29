@@ -31,6 +31,10 @@ def normalize_messages(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
     return normalized
 
 
+def strip_pool_unfriendly_markup(text: str) -> str:
+    return text.replace("</assistant>", "").strip()
+
+
 @dataclass(frozen=True)
 class BackendGeneration:
     text: str
@@ -122,7 +126,8 @@ class LocalHFBackend:
 
         input_len = int(input_ids.shape[-1])
         generated_tokens = output_ids[0, input_len:]
-        text = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
+        raw_text = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
+        served_text = strip_pool_unfriendly_markup(raw_text)
 
         call_dir = self.next_call_dir()
         write_json(call_dir / "request.json", payload)
@@ -136,12 +141,13 @@ class LocalHFBackend:
                 "tokens_per_second": int(generated_tokens.numel()) / max(latency_s, 1e-6),
             },
         )
-        (call_dir / "generated_text.txt").write_text(text, encoding="utf-8")
+        (call_dir / "generated_text.txt").write_text(raw_text, encoding="utf-8")
+        (call_dir / "served_text.txt").write_text(served_text, encoding="utf-8")
         torch.save(input_ids.detach().cpu(), call_dir / "input_tokens.pt")
         torch.save(generated_tokens.detach().cpu(), call_dir / "generated_tokens.pt")
 
         return BackendGeneration(
-            text=text,
+            text=served_text,
             input_tokens=int(input_ids.numel()),
             output_tokens=int(generated_tokens.numel()),
             latency_s=latency_s,
