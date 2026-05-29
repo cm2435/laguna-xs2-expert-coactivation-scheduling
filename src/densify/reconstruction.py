@@ -103,6 +103,7 @@ def compute_parallel_reconstruction_loss(
     batch: dict[str, torch.Tensor],
     layer_ids: list[int] | None = None,
     cosine_weight: float = 0.05,
+    normalize: bool = False,
 ) -> ReconstructionResult:
     if layer_ids is None:
         layer_ids = find_reconstruction_layer_ids(teacher, student)
@@ -126,6 +127,10 @@ def compute_parallel_reconstruction_loss(
         mse_per_token = (pred - target).pow(2).mean(dim=-1)
         mse, token_count = _masked_mean(mse_per_token, attention_mask)
         loss = mse
+        if normalize:
+            # divide by target energy so deep (large-magnitude) layers don't dominate
+            energy, _ = _masked_mean(target.pow(2).mean(dim=-1), attention_mask)
+            loss = mse / (energy + 1e-6)
         cosine_value = torch.zeros((), device=pred.device, dtype=pred.dtype)
         if cosine_weight:
             cosine_per_token = 1 - F.cosine_similarity(pred.float(), target.float(), dim=-1).to(pred.dtype)

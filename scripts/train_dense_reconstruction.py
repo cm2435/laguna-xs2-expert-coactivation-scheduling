@@ -41,6 +41,8 @@ def parse_args() -> argparse.Namespace:
                         help="adafactor uses ~0 extra state (fits all-layer training on 80GB).")
     parser.add_argument("--grad-accum-steps", type=int, default=1,
                         help="Accumulate this many batches per optimizer step.")
+    parser.add_argument("--normalize-loss", action="store_true",
+                        help="Divide each layer's MSE by target energy (balances deep vs shallow).")
     parser.add_argument("--max-examples", type=int)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--dtype", default="bfloat16", choices=["bfloat16", "float16", "float32"])
@@ -186,6 +188,7 @@ def main() -> None:
             batch,
             layer_ids=layer_ids,
             cosine_weight=args.cosine_weight,
+            normalize=args.normalize_loss,
         )
         (result.loss / accum).backward()
         micro += 1
