@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -64,7 +65,12 @@ def run_pool_rollout(
     ]
     (rollout_dir / "pool_command.sh").write_text(" ".join(command) + "\n", encoding="utf-8")
 
-    if shutil.which(pool_binary) is None:
+    env = dict(os.environ)
+    env["POOLSIDE_API_KEY"] = env.get("POOLSIDE_API_KEY", "dummy")
+    env["PATH"] = f"{env.get('PATH', '')}:/root/.local/bin"
+
+    pool_path = shutil.which(pool_binary, path=env["PATH"])
+    if pool_path is None:
         write_json(
             rollout_dir / "rollout_summary.json",
             {
@@ -76,6 +82,7 @@ def run_pool_rollout(
         )
         grade_sandbox(task, sandbox.root)
         return PoolRolloutResult(rid, task.task_id, sandbox.root, 127, rollout_dir)
+    command[0] = pool_path
 
     result = subprocess.run(
         command,
@@ -83,7 +90,7 @@ def run_pool_rollout(
         check=False,
         capture_output=True,
         text=True,
-        env={"POOLSIDE_API_KEY": "dummy", **dict(__import__("os").environ)},
+        env=env,
         timeout=task.limits.timeout_s,
     )
     (rollout_dir / "pool_stdout.json").write_text(result.stdout, encoding="utf-8")
