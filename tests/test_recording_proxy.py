@@ -9,6 +9,8 @@ from densify.openai_proxy.recording_proxy import make_proxy_server
 
 
 class DummyUpstreamHandler(BaseHTTPRequestHandler):
+    seen_payloads = []
+
     def do_GET(self) -> None:
         if self.path == "/models":
             self.write_json({"object": "list", "data": [{"id": "dummy"}]})
@@ -19,6 +21,7 @@ class DummyUpstreamHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         body = self.rfile.read(int(self.headers.get("content-length", "0")))
         payload = json.loads(body or b"{}")
+        type(self).seen_payloads.append({"path": self.path, "payload": payload})
         if self.path == "/chat/completions" and payload.get("stream"):
             self.send_response(200)
             self.send_header("content-type", "text/event-stream")
@@ -82,6 +85,7 @@ def test_recording_proxy_forwards_non_streaming_chat(tmp_path):
 
 
 def test_recording_proxy_forwards_streaming_chat(tmp_path):
+    DummyUpstreamHandler.seen_payloads = []
     upstream = ThreadingHTTPServer(("127.0.0.1", 0), DummyUpstreamHandler)
     start_server(upstream)
     proxy = make_proxy_server(
@@ -104,6 +108,41 @@ def test_recording_proxy_forwards_streaming_chat(tmp_path):
     assert "READY" in body
     assert (tmp_path / "model_calls" / "call_000001" / "served_text.txt").read_text() == "READY"
     assert (tmp_path / "model_calls" / "call_000001" / "stream_events.jsonl").exists()
+
+    proxy.shutdown()
+    upstream.shutdown()
+
+
+def test_recording_proxy_normalizes_pool_openai_path_and_model(tmp_path):
+    DummyUpstreamHandler.seen_payloads = []
+    upstream = ThreadingHTTPServer(("127.0.0.1", 0), DummyUpstreamHandler)
+    start_server(upstream)
+    proxy = make_proxy_server(
+        "127.0.0.1",
+        0,
+        f"http://127.0.0.1:{upstream.server_port}",
+        tmp_path,
+    )
+    start_server(proxy)
+
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{proxy.server_port}/v1/openai/v1/chat/completions",
+        data=json.dumps(
+            {
+                "stream": True,
+                "model": "hf-laguna-probe",
+                "messages": [{"role": "user", "content": "hi"}],
+            }
+        ).encode(),
+        headers={"content-type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request) as response:
+        body = response.read().decode()
+
+    assert "READY" in body
+    assert DummyUpstreamHandler.seen_payloads[-1]["path"] == "/chat/completions"
+    assert DummyUpstreamHandler.seen_payloads[-1]["payload"]["model"] == "laguna"
 
     proxy.shutdown()
     upstream.shutdown()

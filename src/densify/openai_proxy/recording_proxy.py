@@ -13,7 +13,7 @@ from densify.run_artifacts import append_jsonl, write_json
 
 AGENT_ID = "00000000-0000-4000-8000-000000000001"
 MODEL_ID = "00000000-0000-4000-8000-000000000002"
-MODEL_NAME = "hf-laguna-probe"
+MODEL_NAME = "laguna"
 SANDBOX_ID = "00000000-0000-4000-8000-000000000003"
 SESSION_ID = "00000000-0000-4000-8000-000000000004"
 
@@ -156,6 +156,7 @@ class RecordingProxyHandler(BaseHTTPRequestHandler):
             self.write_raw(exc.code, dict(exc.headers), exc.read())
 
     def forward_post(self, payload: dict[str, Any]) -> None:
+        payload = self.normalize_payload(payload)
         request_data = json.dumps(payload).encode("utf-8")
         request = urllib.request.Request(
             self.upstream_url(),
@@ -171,6 +172,7 @@ class RecordingProxyHandler(BaseHTTPRequestHandler):
             self.write_raw(exc.code, dict(exc.headers), exc.read())
 
     def forward_chat_completion(self, payload: dict[str, Any]) -> None:
+        payload = self.normalize_payload(payload)
         call_id = self.next_call_id()
         call_dir = self.config.output_dir / "model_calls" / call_id
         call_dir.mkdir(parents=True, exist_ok=True)
@@ -290,7 +292,15 @@ class RecordingProxyHandler(BaseHTTPRequestHandler):
         append_jsonl(self.config.output_dir / "proxy_requests.jsonl", metadata)
 
     def upstream_url(self) -> str:
-        return f"{self.config.upstream_base_url.rstrip('/')}{self.path.removeprefix('/v1')}"
+        path = self.path.removeprefix("/v1")
+        path = path.removeprefix("/openai/v1")
+        return f"{self.config.upstream_base_url.rstrip('/')}{path}"
+
+    def normalize_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        normalized = dict(payload)
+        if normalized.get("model") in {MODEL_ID, MODEL_NAME, "hf-laguna-probe"}:
+            normalized["model"] = MODEL_NAME
+        return normalized
 
     def next_call_id(self) -> str:
         type(self).call_index += 1
