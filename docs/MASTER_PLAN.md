@@ -242,6 +242,8 @@ reports/
 
 ## Minimal End-to-End Milestone
 
+Before activation capture, complete [Teacher Smoke Generation Implementation Plan](eng_plans/001-teacher-smoke-generation.md). This proves that the unmodified HF/PyTorch teacher path can load the model, inspect MoE modules, and generate sane Python coding outputs.
+
 The smallest real success:
 
 1. Load Laguna XS.2 or a smaller architecture-compatible proxy.
