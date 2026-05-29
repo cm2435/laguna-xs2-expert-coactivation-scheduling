@@ -1,6 +1,5 @@
-# Laguna XS.2 Expert Co-Activation Scheduling
+# Laguna XS.2 MoE Densification
 
-RFC and experiment plan for improving saturated decode throughput on Laguna XS.2 by scheduling concurrent requests with overlapping MoE expert activations.
+Planning documents for densifying Laguna XS.2 by replacing sparse MoE MLP layers with dense surrogate MLPs trained on teacher rollouts and layer-wise representation reconstruction.
 
-See [docs/rfc-laguna-xs2-expert-coactivation-scheduling.md](docs/rfc-laguna-xs2-expert-coactivation-scheduling.md).
-
+Start with [docs/MASTER_PLAN.md](docs/MASTER_PLAN.md), then see the RFCs under [docs/rfcs](docs/rfcs).
