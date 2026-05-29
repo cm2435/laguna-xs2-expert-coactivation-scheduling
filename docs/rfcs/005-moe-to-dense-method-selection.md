@@ -465,3 +465,5 @@ Use **Pruning and Distilling MoE into Dense Language Models** as the core recipe
 DeepSeek-style FP8 should be treated as a later serving multiplier for the dense model, not as the main densification method.
 
 The project should be judged on p50, p95/p99, and throughput under mixed batched coding inference. Single-prompt speed is useful but not decisive.
+
+The codebase should implement these methods as parallel, comparable experiments rather than one-off scripts. See [RFC 006: Parallel Densification Experiment Framework](006-parallel-densification-experiment-framework.md).
