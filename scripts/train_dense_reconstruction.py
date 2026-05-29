@@ -37,6 +37,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cosine-weight", type=float, default=0.05)
     parser.add_argument("--log-every", type=int, default=10)
     parser.add_argument("--save-every", type=int, default=100)
+    parser.add_argument("--optimizer", default="adamw", choices=["adamw", "adafactor"],
+                        help="adafactor uses ~0 extra state (fits all-layer training on 80GB).")
+    parser.add_argument("--grad-accum-steps", type=int, default=1,
+                        help="Accumulate this many batches per optimizer step.")
     parser.add_argument("--max-examples", type=int)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--dtype", default="bfloat16", choices=["bfloat16", "float16", "float32"])
@@ -137,7 +141,13 @@ def main() -> None:
     if not layer_ids:
         raise RuntimeError("No dense reconstruction layers found")
 
-    optimizer = AdamW((param for param in student.parameters() if param.requires_grad), lr=args.learning_rate)
+    trainable_params = [param for param in student.parameters() if param.requires_grad]
+    if args.optimizer == "adafactor":
+        from transformers.optimization import Adafactor
+        optimizer = Adafactor(trainable_params, lr=args.learning_rate,
+                              scale_parameter=False, relative_step=False, warmup_init=False)
+    else:
+        optimizer = AdamW(trainable_params, lr=args.learning_rate)
     dataset = load_dataset(
         args.dataset,
         args.dataset_config,
@@ -165,10 +175,11 @@ def main() -> None:
     (args.output_dir / "config.json").write_text(json.dumps(config, indent=2) + "\n")
 
     start = time.time()
-    for step, batch in enumerate(batches, start=1):
-        if step > args.max_steps:
-            break
-        optimizer.zero_grad(set_to_none=True)
+    accum = max(1, args.grad_accum_steps)
+    step = 0
+    micro = 0
+    optimizer.zero_grad(set_to_none=True)
+    for batch in batches:
         result = compute_parallel_reconstruction_loss(
             teacher,
             student,
@@ -176,8 +187,15 @@ def main() -> None:
             layer_ids=layer_ids,
             cosine_weight=args.cosine_weight,
         )
-        result.loss.backward()
+        (result.loss / accum).backward()
+        micro += 1
+        if micro % accum != 0:
+            continue
         optimizer.step()
+        optimizer.zero_grad(set_to_none=True)
+        step += 1
+        if step > args.max_steps:
+            break
 
         if step == 1 or step % args.log_every == 0:
             row = {
