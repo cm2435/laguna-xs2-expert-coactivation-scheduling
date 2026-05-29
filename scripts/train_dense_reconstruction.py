@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
+import shutil
 import time
 from itertools import islice
 from pathlib import Path
@@ -102,6 +104,25 @@ def parse_layer_ids(value: str | None) -> list[int] | None:
     return [int(item.strip()) for item in value.split(",") if item.strip()]
 
 
+def copy_remote_code_files(model: Any, checkpoint_dir: Path) -> None:
+    """Keep local checkpoints reloadable when the model uses HF remote code."""
+    source_files: set[Path] = set()
+    for obj in (model.__class__, model.config.__class__):
+        try:
+            source_files.add(Path(inspect.getfile(obj)))
+        except TypeError:
+            continue
+
+    for source in source_files:
+        if source.suffix == ".py" and source.exists():
+            shutil.copy2(source, checkpoint_dir / source.name)
+
+
+def save_checkpoint(model: Any, checkpoint_dir: Path) -> None:
+    model.save_pretrained(checkpoint_dir, safe_serialization=True)
+    copy_remote_code_files(model, checkpoint_dir)
+
+
 def main() -> None:
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -191,9 +212,9 @@ def main() -> None:
             print(json.dumps(row), flush=True)
 
         if args.save_every and step % args.save_every == 0:
-            student.save_pretrained(args.output_dir / f"checkpoint-step-{step}", safe_serialization=True)
+            save_checkpoint(student, args.output_dir / f"checkpoint-step-{step}")
 
-    student.save_pretrained(args.output_dir / "checkpoint-final", safe_serialization=True)
+    save_checkpoint(student, args.output_dir / "checkpoint-final")
 
 
 if __name__ == "__main__":
