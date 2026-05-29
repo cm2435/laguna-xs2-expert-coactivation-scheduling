@@ -191,6 +191,41 @@ The first experiment only needs enough data to estimate whether expert-overlap h
 
 ## Serving Stack Decision
 
+### System Roles
+
+The experiment should keep the agent harness and the generation server separate:
+
+```text
+pool / SWE-bench harness
+  -> produces realistic agentic coding prompts and trajectories
+  -> records task/turn metadata
+  -> does not need to be the model-serving backend
+
+SGLang
+  -> serves Laguna XS.2
+  -> performs generation
+  -> exposes routed-expert telemetry
+  -> applies request scheduling via routing keys
+
+analysis scripts
+  -> cluster prompts
+  -> attach routing keys
+  -> replay workloads
+  -> compute expert-load and throughput metrics
+```
+
+In other words, `pool` is not the generation engine for this project. It is the preferred source of realistic coding-agent turns. The generation engine should be SGLang because we need direct control over serving policy and access to routed-expert data.
+
+The local working copy keeps upstream repos under:
+
+```text
+repos/pool
+repos/sglang
+repos/vllm
+```
+
+These repos are for source inspection and local experimentation only. They are ignored by git so the hackathon repo does not vendor large upstream projects.
+
 ### Use SGLang for the Hackathon MVP
 
 SGLang has two practical surfaces that make this project much easier:
@@ -722,4 +757,3 @@ Potential pivots:
 - How much batching delay is acceptable before p95 latency worsens?
 - Does the FP8 variant behave differently from NVFP4 in expert-routing stability?
 - Does SGLang's routing-key policy produce enough co-location, or do we need a custom continuous scheduler?
-
