@@ -1,4 +1,6 @@
 import json
+from dataclasses import dataclass
+from pathlib import Path
 
 from densify.run_artifacts import append_jsonl, new_run_dir, write_json, write_yaml
 
@@ -28,3 +30,17 @@ def test_write_yaml(tmp_path):
     write_yaml(yaml_path, {"model_id": "fake/model", "nested": {"ok": True}})
 
     assert "model_id: fake/model" in yaml_path.read_text(encoding="utf-8")
+
+
+def test_write_yaml_converts_paths_inside_dataclasses(tmp_path):
+    @dataclass(frozen=True)
+    class Config:
+        prompt_path: Path
+
+    yaml_path = tmp_path / "config.yaml"
+
+    write_yaml(yaml_path, Config(prompt_path=Path("data/prompts/python_smoke.jsonl")))
+
+    assert "prompt_path: data/prompts/python_smoke.jsonl" in yaml_path.read_text(
+        encoding="utf-8"
+    )
