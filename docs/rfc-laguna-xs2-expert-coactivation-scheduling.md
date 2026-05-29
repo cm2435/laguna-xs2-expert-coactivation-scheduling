@@ -235,9 +235,9 @@ SGLang has two practical surfaces that make this project much easier:
 
 Relevant local files inspected:
 
-- `/Users/charliemasters/Desktop/synced_vm_002/hackathon/_deps/sglang/python/sglang/srt/state_capturer/routed_experts.py`
-- `/Users/charliemasters/Desktop/synced_vm_002/hackathon/_deps/sglang/python/sglang/srt/managers/schedule_policy.py`
-- `/Users/charliemasters/Desktop/synced_vm_002/hackathon/_deps/sglang/python/sglang/srt/entrypoints/openai/serving_base.py`
+- `/Users/charliemasters/Desktop/synced_vm_002/hackathon/repos/sglang/python/sglang/srt/state_capturer/routed_experts.py`
+- `/Users/charliemasters/Desktop/synced_vm_002/hackathon/repos/sglang/python/sglang/srt/managers/schedule_policy.py`
+- `/Users/charliemasters/Desktop/synced_vm_002/hackathon/repos/sglang/python/sglang/srt/entrypoints/openai/serving_base.py`
 
 The important SGLang facts:
 
@@ -266,14 +266,349 @@ vLLM is still useful:
 - It has `enable_return_routed_experts=True`.
 - It has a routed-experts example under `examples/rl/routed_experts_e2e.py`.
 - It has EPLB load-stat logging for expert-parallel deployments.
+- It supports `--scheduler-cls`, so a custom scheduler is possible as a deeper follow-up.
 
 Relevant local files inspected:
 
-- `/Users/charliemasters/Desktop/synced_vm_002/hackathon/_deps/vllm/examples/rl/routed_experts_e2e.py`
-- `/Users/charliemasters/Desktop/synced_vm_002/hackathon/_deps/vllm/vllm/v1/core/sched/request_queue.py`
-- `/Users/charliemasters/Desktop/synced_vm_002/hackathon/_deps/vllm/docs/serving/expert_parallel_deployment.md`
+- `/Users/charliemasters/Desktop/synced_vm_002/hackathon/repos/vllm/examples/rl/routed_experts_e2e.py`
+- `/Users/charliemasters/Desktop/synced_vm_002/hackathon/repos/vllm/vllm/v1/core/sched/request_queue.py`
+- `/Users/charliemasters/Desktop/synced_vm_002/hackathon/repos/vllm/docs/serving/expert_parallel_deployment.md`
 
-However, vLLM's request queue path is less directly useful for the MVP: the V1 request queue exposes FCFS and priority scheduling, not a ready-made routing-key policy. Implementing co-activation scheduling in vLLM would be more invasive. Keep it as a comparison path or stretch.
+However, vLLM's request queue path is less directly useful for the MVP: the V1 request queue exposes FCFS and priority scheduling, not a ready-made routing-key policy. Implementing co-activation scheduling in vLLM would require a custom scheduler class or external replay ordering. Keep it as a comparison path or stretch.
+
+## Expert Clustering Design: Deep and Wide
+
+There are two different systems in this project:
+
+1. The **deep generation-engine path**: how we observe routed experts and influence batching inside the model server.
+2. The **wide end-to-end path**: how realistic agent prompts are produced, clustered, replayed, and measured.
+
+Keeping these separate avoids the main conceptual trap: the live batcher cannot use true future expert activations, because those are only known after generation. True expert activations are for offline oracle analysis and training/evaluating a proxy. The live router must use a pre-generation signal, such as prompt embeddings, previous-turn expert sets, task metadata, or explicit route keys.
+
+### Deep Path: What SGLang Gives Us
+
+SGLang gives us the most direct MVP surface.
+
+#### Routed-Expert Capture
+
+SGLang has a `RoutedExpertsCapturer` that captures top-k expert indices per token and layer. The capturer is enabled server-side with:
+
+```text
+--enable-return-routed-experts
+```
+
+Requests opt in with:
+
+```json
+{
+  "return_routed_experts": true,
+  "routed_experts_start_len": 0
+}
+```
+
+Relevant code:
+
+- `repos/sglang/python/sglang/srt/state_capturer/routed_experts.py`
+- `repos/sglang/python/sglang/srt/entrypoints/openai/protocol.py`
+
+The returned routed-expert payload is encoded for transport. The helper `extract_routed_experts_from_meta_info` decodes it into an `int32` array. We should write a small wrapper that normalizes the returned experts into:
+
+```text
+[num_tokens, num_layers, top_k]
+```
+
+Then derive per-request summaries:
+
+```text
+expert_set_by_layer[layer] = set(expert ids used by this request at this layer)
+expert_multiset_by_layer[layer] = counts of expert ids by token
+```
+
+#### Routing-Key Scheduling
+
+SGLang already has a coarse scheduling policy:
+
+```text
+--schedule-policy routing-key
+```
+
+The OpenAI server extracts the routing key from the HTTP header:
+
+```text
+x-smg-routing-key
+```
+
+The policy counts routing keys in the running batch, then sorts waiting requests so requests with matching keys are scheduled first. This is not a continuous "minimize expert union" scheduler, but it is exactly enough for an MVP:
+
+```text
+cluster prompt -> assign cluster_id -> send x-smg-routing-key: cluster_id
+```
+
+Relevant code:
+
+- `repos/sglang/python/sglang/srt/managers/schedule_policy.py`
+- `repos/sglang/python/sglang/srt/entrypoints/openai/serving_base.py`
+
+This gives us a live deployable route without editing SGLang internals.
+
+#### What SGLang Does Not Give Us Yet
+
+SGLang's built-in routing-key scheduler does not:
+
+- Minimize the exact expert union.
+- Use pairwise embedding distance directly.
+- Re-cluster continuously against the current running batch.
+- Delay requests to form an optimal homogeneous batch.
+- Use previous-turn expert sets automatically.
+
+Those are deeper extensions. The first hackathon result should use routing keys. A stretch scheduler can be added later by modifying `SchedulePolicy._sort_by_routing_key` or adding a new policy such as:
+
+```text
+--schedule-policy coactivation
+```
+
+That custom policy would score each waiting request by:
+
+```text
+score(req) = predicted_new_expert_load(req, running_batch)
+```
+
+where the prediction comes from embeddings or previous-turn expert sets.
+
+### Deep Path: Is vLLM Easier?
+
+vLLM is easier for one thing: simple offline routed-expert capture. Its example `examples/rl/routed_experts_e2e.py` shows `enable_return_routed_experts=True` and returns `completion.routed_experts`.
+
+vLLM is harder for the live scheduling MVP:
+
+- It exposes a custom scheduler hook via `scheduler_cls`.
+- But the default V1 scheduler does not include a routing-key policy.
+- A live co-activation scheduler therefore means either writing a custom scheduler class or doing all ordering outside vLLM before requests arrive.
+
+So the recommendation is:
+
+- **SGLang for the MVP serving experiment**: routed experts plus routing-key scheduling.
+- **vLLM for sanity checks or fallback offline profiling**: routed-expert capture and comparison with another engine.
+- **vLLM custom scheduler only as stretch**: useful if SGLang support for Laguna is blocked or if we want a cleaner paper-grade scheduler implementation later.
+
+### Wide Path: Where Pool Fits
+
+`pool` is not the batcher and not the generation engine in the MVP.
+
+`pool` is useful in two ways:
+
+1. It can generate realistic coding-agent traces with `pool exec`.
+2. It can provide task/turn structure: trajectory id, turn index, tool calls, file edits, test runs, and observations.
+
+The important practical point: we should not put the live batcher "before pool" if pool itself is hiding the model calls. If pool calls Poolside's hosted model internally, then we cannot attach SGLang routing keys or capture SGLang routed experts.
+
+Therefore the clean MVP control flow is a **two-stage capture and replay pipeline**:
+
+```text
+Stage A: collect prompts
+
+pool / SWE-bench harness
+  -> run coding tasks
+  -> capture each model-call prompt or agent turn
+  -> write prompts.jsonl
+
+Stage B: replay prompts through our server
+
+prompts.jsonl
+  -> embedding / oracle clustering
+  -> replay driver
+  -> SGLang OpenAI-compatible endpoint
+  -> routed experts + timing logs
+```
+
+This separates "realistic workload generation" from "controlled serving measurement." It also lets us run FCFS, random, BGE-clustered, and oracle-clustered conditions over the exact same prompt set.
+
+### Full End-to-End Control Flow
+
+#### Step 1: Prompt Collection
+
+Create:
+
+```text
+data/prompts.jsonl
+```
+
+Each row:
+
+```json
+{
+  "request_id": "swe_001_turn_007",
+  "trajectory_id": "swe_001",
+  "turn_index": 7,
+  "source": "pool",
+  "prompt": "...",
+  "messages": [...],
+  "expected_max_new_tokens": 256,
+  "metadata": {
+    "task_id": "...",
+    "phase": "edit|inspect|test|reason|patch"
+  }
+}
+```
+
+If pool does not expose raw model prompts cleanly, use one of these fallbacks:
+
+- SWE-bench issue prompts plus repo context snippets.
+- Existing agent trajectory files from SWE-agent or Agentless.
+- Synthetic coding prompts grouped by task type.
+- OpenPerfectBlend for a reproduction-style broad prompt baseline.
+
+#### Step 2: Profiling Run
+
+Replay `prompts.jsonl` through SGLang with:
+
+```text
+return_routed_experts = true
+x-smg-routing-key absent
+--schedule-policy fcfs
+temperature = 0
+max_new_tokens = fixed
+```
+
+Output:
+
+```text
+runs/profile/responses.jsonl
+runs/profile/routed_experts/
+```
+
+This profiling run is used to compute true expert overlap. It is not the optimized serving run.
+
+#### Step 3: Oracle Clustering
+
+For each request, compute:
+
+```text
+E(req, layer) = set of experts used by req at layer
+E(req) = union or weighted vector over all layers
+```
+
+Pairwise overlap:
+
+```text
+jaccard(req_a, req_b) = |E(a) intersect E(b)| / |E(a) union E(b)|
+```
+
+Greedy oracle batching:
+
+```text
+start empty batch
+add request that increases current unique expert union the least
+repeat until batch size B
+```
+
+The oracle is only an upper bound. It tells us whether there is headroom.
+
+#### Step 4: Deployable Proxy Clustering
+
+Generate a pre-routing key before sending the request to SGLang.
+
+Proxy options, from simplest to more agent-specific:
+
+1. **BGE prompt embedding**:
+
+```text
+embedding = BAAI/bge-small-en-v1.5(prompt)
+cluster_id = kmeans(embedding)
+```
+
+2. **Task phase key**:
+
+```text
+cluster_id = "inspect" | "edit" | "test" | "patch" | "reason"
+```
+
+3. **Hybrid key**:
+
+```text
+cluster_id = phase + "_" + embedding_cluster
+```
+
+4. **Previous-turn expert key** for agent sessions:
+
+```text
+cluster_id = hash(top experts from previous turn)
+```
+
+The first deployable MVP should use BGE embeddings. The agentic novelty experiment should compare BGE against previous-turn expert keys.
+
+#### Step 5: Live Serving Replay
+
+Run SGLang with:
+
+```text
+--schedule-policy routing-key
+--enable-return-routed-experts
+```
+
+Replay the same prompt set at fixed concurrency. Each request includes:
+
+```text
+x-smg-routing-key: <cluster_id>
+```
+
+Compare:
+
+- FCFS, no key.
+- Routing-key scheduler with random keys.
+- Routing-key scheduler with BGE cluster keys.
+- Routing-key scheduler with oracle cluster keys.
+- Optional: routing-key scheduler with previous-turn expert keys.
+
+#### Step 6: Metrics
+
+Primary:
+
+```text
+decode output tokens/sec at fixed concurrency
+```
+
+Mechanism:
+
+```text
+unique expert loads per decode step
+```
+
+Secondary:
+
+```text
+p50/p95 latency
+queue wait
+TTFT
+GPU utilization
+```
+
+### Where the Batcher Lives
+
+For the MVP, the batcher/router is external to SGLang but downstream of data collection:
+
+```text
+prompts.jsonl -> cluster_prompts.py -> replay_with_routing_keys.py -> SGLang
+```
+
+It is **not** before pool in the first implementation, because pool is only producing/capturing workload traces.
+
+For a full production-style system, the batcher would live in a proxy in front of SGLang:
+
+```text
+client requests
+  -> coactivation proxy
+  -> adds x-smg-routing-key
+  -> SGLang routing-key scheduler
+```
+
+If we later want online adaptation from previous-turn expert sets, the proxy maintains per-session state:
+
+```text
+session_id -> last_expert_signature
+```
+
+Then new turns get routed by their session's previous expert signature.
 
 ## Experimental Conditions
 
