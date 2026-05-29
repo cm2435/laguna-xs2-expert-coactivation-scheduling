@@ -53,6 +53,10 @@ def test_tool_executor_accepts_absolute_repo_paths_and_blocks_installs(tmp_path)
     assert blocked.ok is False
     assert "blocked command" in blocked.output
 
+    compound = executor.execute("shell", {"command": "cd . && pip install pyerfa"})
+    assert compound.ok is False
+    assert "blocked command" in compound.output
+
 
 class DummyChatHandler(BaseHTTPRequestHandler):
     seen_payloads = []

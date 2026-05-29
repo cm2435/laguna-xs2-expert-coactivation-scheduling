@@ -177,8 +177,34 @@ class ToolExecutor:
         return candidate
 
     def is_blocked_shell_command(self, command: str) -> bool:
+        for segment in self.shell_segments(command):
+            if self.segment_is_blocked(segment):
+                return True
+        return False
+
+    def shell_segments(self, command: str) -> list[str]:
+        segments: list[str] = []
+        current: list[str] = []
         try:
-            parts = shlex.split(command)
+            lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
+            lexer.whitespace_split = True
+            tokens = list(lexer)
+        except ValueError:
+            return [command]
+        for token in tokens:
+            if token in {"&&", "||", ";"}:
+                if current:
+                    segments.append(" ".join(current))
+                    current = []
+                continue
+            current.append(token)
+        if current:
+            segments.append(" ".join(current))
+        return segments
+
+    def segment_is_blocked(self, segment: str) -> bool:
+        try:
+            parts = shlex.split(segment)
         except ValueError:
             return False
         if not parts:
