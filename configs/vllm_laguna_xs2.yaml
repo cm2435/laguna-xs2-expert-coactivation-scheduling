@@ -1,13 +1,15 @@
 model: poolside/Laguna-XS.2
-served-model-name: hf-laguna-probe
+served-model-name: laguna
 host: 127.0.0.1
 port: 8791
 trust-remote-code: true
-max-model-len: 131072
+max-model-len: 262144
 tensor-parallel-size: 1
-gpu-memory-utilization: 0.90
+gpu-memory-utilization: 0.92
 enable-auto-tool-choice: true
 tool-call-parser: poolside_v1
 reasoning-parser: poolside_v1
+attention-backend: FLASH_ATTN
+moe-backend: triton
 default-chat-template-kwargs:
   enable_thinking: false
