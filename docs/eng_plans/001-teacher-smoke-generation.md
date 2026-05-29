@@ -207,12 +207,64 @@ runs/teacher_smoke/{run_id}/
 }
 ```
 
-## Proposed File Structure
+## Repository and Artifact Layout
 
-Create these project-owned files:
+Use a normal `src/` Python package with `uv` as the environment manager. Keep source code, scripts, configs, immutable input data, generated rollouts, eval artifacts, and large checkpoints in separate folders. The split matters because this project will quickly produce large activation shards and run outputs that should not be committed.
+
+### Top-Level Layout
 
 ```text
 pyproject.toml
+uv.lock
+.python-version
+.gitignore
+
+configs/
+  teacher_smoke_h100.yaml
+  teacher_smoke_proxy.yaml
+  activation_capture_h100.yaml
+  train_surrogate_layer.yaml
+  eval_tiny_coding.yaml
+
+data/
+  prompts/
+    python_smoke.jsonl
+    humaneval_tiny.jsonl
+    mbpp_tiny.jsonl
+    swebench_verified_python_tiny.jsonl
+  rollouts/
+    teacher_smoke/
+    pool_agent/
+  activations/
+    teacher_laguna_xs2/
+      layer_XX/
+  evals/
+    tiny_coding_results/
+    humaneval_results/
+    swebench_prompt_results/
+
+inventory/
+  models.md
+  data.md
+  hardware.md
+  experiments.md
+  checkpoints.md
+
+reports/
+  figures/
+  tables/
+  final_summary.md
+
+runs/
+  teacher_smoke/
+  activation_capture/
+  training/
+  evals/
+  inference_benchmarks/
+
+checkpoints/
+  surrogate_layers/
+  densified_model/
 
 src/densify/
   __init__.py
@@ -223,22 +275,122 @@ src/densify/
   generation.py
   code_scoring.py
   run_artifacts.py
+  activation_capture.py
+  surrogate_modules.py
+  training_data.py
+  evals.py
+  metrics.py
 
 scripts/
   smoke_load_teacher.py
   run_teacher_smoke_eval.py
   build_python_smoke_prompts.py
   build_swebench_verified_tiny.py
-
-configs/
-  teacher_smoke_h100.yaml
-  teacher_smoke_proxy.yaml
+  collect_rollouts.py
+  capture_activations.py
+  train_surrogate_layer.py
+  assemble_densified_model.py
+  run_eval.py
 
 tests/
   test_prompt_data.py
   test_code_scoring.py
   test_run_artifacts.py
+  test_model_introspection.py
+  test_activation_capture.py
+  test_surrogate_modules.py
 ```
+
+### What Lives Where
+
+`src/densify/` contains importable library code. Scripts should be thin wrappers around functions in this package.
+
+`scripts/` contains executable entry points for the hackathon workflow:
+
+```text
+build_*                 -> create small prompt/eval datasets
+smoke_load_teacher.py   -> check model loading and architecture introspection
+run_teacher_smoke_eval  -> generate and score teacher outputs
+collect_rollouts.py     -> create prompt/completion rollouts
+capture_activations.py  -> replay prompts and save x_layer/y_teacher shards
+train_surrogate_layer   -> train one dense replacement block
+assemble_densified_model -> swap trained surrogates into a checkpoint
+run_eval.py             -> evaluate teacher/student checkpoints
+```
+
+`configs/` contains small YAML files for reproducible runs. Every script should accept `--config` and write the resolved config into its run directory.
+
+`data/prompts/` contains committed, small JSONL prompt files. These are inputs, not generated experiment outputs.
+
+`data/rollouts/` contains generated prompt/completion traces. Do not commit large rollout files. Store a small sample only if needed for tests or documentation.
+
+`data/activations/` contains activation shards used for surrogate training. Never commit this folder; it will become huge.
+
+`data/evals/` contains generated eval outputs or converted benchmark subsets. Commit only tiny handcrafted eval definitions; do not commit benchmark result dumps unless they are small final reports.
+
+`runs/` contains per-run artifacts: resolved configs, JSONL generations, summaries, logs, and examples. This is the main debugging surface. Do not commit routine run outputs.
+
+`checkpoints/` contains trained surrogate layers and assembled densified checkpoints. Never commit model weights.
+
+`inventory/` contains human-maintained markdown registries for models, datasets, hardware, experiments, and checkpoints. These should be committed because they explain what happened.
+
+`reports/` contains final hackathon tables, figures, and summaries. Commit final small reports, not raw logs.
+
+### Git Tracking Policy
+
+Commit:
+
+```text
+source code
+scripts
+configs
+tests
+small prompt JSONL files
+inventory markdown
+final report markdown/figures/tables
+```
+
+Do not commit:
+
+```text
+runs/
+data/rollouts/
+data/activations/
+checkpoints/
+large eval dumps
+Hugging Face model cache
+Prime VM logs
+```
+
+The `.gitignore` should include:
+
+```gitignore
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.ty/
+runs/
+data/rollouts/
+data/activations/
+data/evals/*_results/
+checkpoints/
+reports/raw/
+```
+
+### Tooling Plan
+
+Use `uv` for environment creation and command execution:
+
+```bash
+uv venv --python 3.11
+uv sync --extra dev
+uv run pytest
+uv run ruff check .
+uv run ty check src tests scripts
+```
+
+Use `ruff` for linting and formatting. Use `ty` for fast type checks once the scaffold exists. Type checking should be advisory during the hackathon: helpful for catching schema mistakes, but not a blocker if model remote-code types are dynamic.
 
 ## Implementation Plan
 
@@ -246,12 +398,40 @@ tests/
 
 **Files:**
 
+- Create: `.python-version`
+- Modify: `.gitignore`
 - Create: `pyproject.toml`
 - Create: `src/densify/__init__.py`
 
-- [ ] **Step 1: Create `pyproject.toml`**
+- [ ] **Step 1: Create `.python-version`**
+
+```text
+3.11
+```
+
+- [ ] **Step 2: Update `.gitignore`**
+
+```gitignore
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.ty/
+runs/
+data/rollouts/
+data/activations/
+data/evals/*_results/
+checkpoints/
+reports/raw/
+```
+
+- [ ] **Step 3: Create `pyproject.toml`**
 
 ```toml
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "laguna-xs2-densify"
 version = "0.1.0"
@@ -272,7 +452,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest>=8.2",
-  "ruff>=0.6"
+  "ruff>=0.6",
+  "ty>=0.0.1a16"
 ]
 
 [tool.pytest.ini_options]
@@ -281,32 +462,55 @@ pythonpath = ["src"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
 ```
 
-- [ ] **Step 2: Create `src/densify/__init__.py`**
+- [ ] **Step 4: Create `src/densify/__init__.py`**
 
 ```python
 """Utilities for Laguna XS.2 MoE densification experiments."""
 ```
 
-- [ ] **Step 3: Install editable package**
+- [ ] **Step 5: Install with uv**
 
 Run:
 
 ```bash
-python -m pip install -e ".[dev]"
+uv venv --python 3.11
+uv sync --extra dev
 ```
 
 Expected:
 
 ```text
-Successfully installed laguna-xs2-densify
+Resolved ...
+Installed ...
 ```
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 6: Verify toolchain**
+
+Run:
 
 ```bash
-git add pyproject.toml src/densify/__init__.py
+uv run pytest --version
+uv run ruff --version
+uv run ty --version
+```
+
+Expected:
+
+```text
+pytest ...
+ruff ...
+ty ...
+```
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add .python-version .gitignore pyproject.toml uv.lock src/densify/__init__.py
 git commit -m "Add Python project skeleton"
 ```
 
