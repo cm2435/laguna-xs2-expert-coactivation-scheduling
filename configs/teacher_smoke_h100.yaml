@@ -7,7 +7,9 @@ prompt_path: data/prompts/python_smoke.jsonl
 output_dir: runs/teacher_smoke
 generation:
   max_new_tokens: 256
-  temperature: 0.2
+  temperature: 0.7
+  top_k: 20
   top_p: 0.95
-  do_sample: false
+  do_sample: true
+  enable_thinking: true
   batch_size: 1

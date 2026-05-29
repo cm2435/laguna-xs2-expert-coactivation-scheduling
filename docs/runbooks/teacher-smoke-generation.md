@@ -20,6 +20,10 @@ The default H100/B300 config uses the `poolside/Laguna-XS.2` BF16 checkpoint. Us
 training scaffold needs ordinary BF16/FP16 matmuls for hooks, gradients, and layer
 replacement.
 
+The smoke generation path follows the official Transformers model-card recipe: chat
+template formatting with `enable_thinking=true`, `do_sample=true`, `temperature=0.7`,
+and `top_k=20`.
+
 Pass-gate run:
 
 ```bash

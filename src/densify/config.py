@@ -11,8 +11,10 @@ import yaml
 class GenerationConfig:
     max_new_tokens: int
     temperature: float
+    top_k: int | None
     top_p: float
     do_sample: bool
+    enable_thinking: bool
     batch_size: int
 
 
@@ -51,9 +53,11 @@ def load_teacher_smoke_config(path: str | Path) -> TeacherSmokeConfig:
         output_dir=Path(raw["output_dir"]),
         generation=GenerationConfig(
             max_new_tokens=int(gen.get("max_new_tokens", 256)),
-            temperature=float(gen.get("temperature", 0.2)),
+            temperature=float(gen.get("temperature", 0.7)),
+            top_k=int(gen["top_k"]) if gen.get("top_k") is not None else None,
             top_p=float(gen.get("top_p", 0.95)),
-            do_sample=bool(gen.get("do_sample", False)),
+            do_sample=bool(gen.get("do_sample", True)),
+            enable_thinking=bool(gen.get("enable_thinking", True)),
             batch_size=int(gen.get("batch_size", 1)),
         ),
     )
