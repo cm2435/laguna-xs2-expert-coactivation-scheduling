@@ -14,3 +14,6 @@ data/activations/
 data/evals/*_results/
 checkpoints/
 reports/raw/
+envs/repo_templates/
+envs/build_cache/
+sandboxes/

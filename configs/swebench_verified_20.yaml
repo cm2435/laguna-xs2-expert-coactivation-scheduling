@@ -1,0 +1,12 @@
+dataset: princeton-nlp/SWE-bench_Verified
+split: test
+output_dir: tasks/swebench_verified
+registry_path: tasks/registry.jsonl
+target_total: 20
+repos:
+  astropy/astropy: 4
+  django/django: 4
+  pytest-dev/pytest: 3
+  sympy/sympy: 3
+  matplotlib/matplotlib: 3
+  scikit-learn/scikit-learn: 3
