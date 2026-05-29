@@ -1,5 +1,7 @@
 # vLLM SWE-Bench Rollout Data Infrastructure Implementation Plan
 
+**Status:** Active implementation plan.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Stand up a vLLM-backed OpenAI-compatible Laguna XS.2 endpoint and build the task/sandbox/grader infrastructure needed to run 20+ realistic SWE-bench Verified rollouts through `pool`, collecting full model/tool traces for ToolSpec-style speculative decoding.

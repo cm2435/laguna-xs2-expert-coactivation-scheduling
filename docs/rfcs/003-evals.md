@@ -1,5 +1,7 @@
 # RFC 003: Evals
 
+**Status:** Partially superseded. Reconstruction and densification evals are archived background; repo-task sandboxing guidance now lives in [RFC 007](007-real-repo-task-environments.md), and the active inference study lives in [RFC 008](008-toolspec-swebench-rollout-speculation.md).
+
 ## Purpose
 
 Measure whether MoE densification preserves useful coding behavior and whether it improves inference properties.

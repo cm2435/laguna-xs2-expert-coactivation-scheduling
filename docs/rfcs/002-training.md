@@ -1,5 +1,7 @@
 # RFC 002: Training Dense Surrogate MoE Replacements
 
+**Status:** Archived background. This MoE-to-dense training plan is retained for reference but is not the active hackathon implementation path.
+
 ## Purpose
 
 Train dense surrogate MLPs that replace Laguna XS.2's sparse MoE MLP blocks on coding-task rollouts.
@@ -267,4 +269,3 @@ downstream smoke generation still coherent after swap
 - Does shared-expert initialization dominate random?
 - Is 2048 intermediate width enough?
 - Does layer-wise reconstruction predict code eval performance?
-

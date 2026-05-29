@@ -1,5 +1,7 @@
 # RFC 004: Inventory
 
+**Status:** Background. Keep the inventory discipline, but the active artifacts now center on Pool/SWE-bench rollouts and ToolSpec traces rather than densified checkpoints.
+
 ## Purpose
 
 Maintain an explicit inventory of models, data, hardware, checkpoints, metrics, and open implementation risks.
@@ -243,4 +245,3 @@ Required figures:
 - How much host disk can we spend on activations?
 - What is the smallest dense width that remains useful?
 - Which runtime can serve the densified checkpoint fastest?
-

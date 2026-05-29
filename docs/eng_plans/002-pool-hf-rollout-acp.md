@@ -1,5 +1,7 @@
 # Pool + HF Rollout ACP Implementation Plan
 
+**Status:** Superseded. We moved from ACP/HF as the primary rollout path to Pool -> recording OpenAI proxy -> vLLM Laguna. See [003: vLLM SWE-Bench Rollout Data Infrastructure](003-vllm-swebench-rollout-data-infra.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Use `pool` as the coding-agent scaffold while keeping HF/PyTorch Laguna XS.2 as the model backend that generates tokens and captures token-aligned artifacts.

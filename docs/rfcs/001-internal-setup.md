@@ -1,5 +1,7 @@
 # RFC 001: Internal Setup
 
+**Status:** Archived background. This was written for the earlier MoE densification track and is not the active hackathon implementation path.
+
 ## Purpose
 
 Build the local and cloud infrastructure needed to inspect Laguna XS.2, capture activations, train dense surrogate layers, and assemble a densified checkpoint.

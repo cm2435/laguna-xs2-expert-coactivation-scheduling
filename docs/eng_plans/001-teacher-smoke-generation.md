@@ -1,5 +1,7 @@
 # Teacher Smoke Generation Implementation Plan
 
+**Status:** Background/completed scaffold. Useful for HF smoke tests, but superseded for active rollout collection by [003: vLLM SWE-Bench Rollout Data Infrastructure](003-vllm-swebench-rollout-data-infra.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Get a Laguna XS.2 teacher model loaded through HF/PyTorch and generating sane Python coding outputs on a small, reproducible coding-task scaffold.

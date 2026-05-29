@@ -1,5 +1,7 @@
 # RFC 006: Parallel Densification Experiment Framework
 
+**Status:** Archived background. This experiment framework belongs to the MoE densification track and is not the active implementation path.
+
 ## Purpose
 
 Design the codebase so we can test multiple MoE-to-dense block replacement strategies in parallel and compare them on shared metrics.

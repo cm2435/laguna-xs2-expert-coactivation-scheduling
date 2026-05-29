@@ -1,5 +1,7 @@
 # RFC 005: MoE-to-Dense Method Selection
 
+**Status:** Archived background. Useful research context, but the active hackathon path is ToolSpec-style speculative decoding over Pool/SWE-bench traces.
+
 ## Purpose
 
 Select the most promising technical path for replacing Laguna XS.2 routed MoE MLP layers with dense surrogate MLP layers, optimized for batched inference latency and throughput.

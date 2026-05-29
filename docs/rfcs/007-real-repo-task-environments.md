@@ -1,5 +1,7 @@
 # RFC 007: Real Repo Task Environments
 
+**Status:** Active support RFC. This defines the sandbox/task/grader layout for the active Pool/SWE-bench rollout work.
+
 ## Purpose
 
 Define how we store and run coding tasks so model rollouts happen in real repository environments without contaminating task metadata, graders, or future runs.

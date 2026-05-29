@@ -1,5 +1,7 @@
 # RFC 008: ToolSpec-Style SWE-Bench Rollouts and Speculative Tool Decoding
 
+**Status:** Active primary RFC. This is the current hackathon research direction.
+
 ## Purpose
 
 Pivot the project from full RL or full MoE-to-dense training toward a lower-risk inference/agent-systems experiment:
