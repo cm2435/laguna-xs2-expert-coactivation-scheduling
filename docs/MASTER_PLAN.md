@@ -1,5 +1,20 @@
 # Laguna XS.2 MoE Densification Master Plan
 
+## Current Direction
+
+The immediate hackathon direction has shifted from full MoE densification/RL to **ToolSpec-style speculative decoding for agentic coding tool calls**.
+
+The near-term goal is:
+
+```text
+pool + local HF/OpenAI-compatible Laguna backend
+  -> run 10-20 SWE-bench-style coding tasks
+  -> record full model/tool rollouts and optional activation traces
+  -> build schema-aware and retrieval-augmented speculative drafting for tool-call spans
+```
+
+MoE densification remains useful background work, but it is no longer the primary implementation path. See [RFC 008: ToolSpec-Style SWE-Bench Rollouts and Speculative Tool Decoding](rfcs/008-toolspec-swebench-rollout-speculation.md).
+
 ## Executive Summary
 
 We are changing direction from expert co-activation scheduling to **MoE densification**: replacing each routed Mixture-of-Experts MLP block in Laguna XS.2 with a single dense surrogate MLP. The goal is to produce a smaller, simpler dense model variant that preserves useful coding capability while improving memory footprint, serving complexity, and potentially tokens/sec on accessible hardware.
