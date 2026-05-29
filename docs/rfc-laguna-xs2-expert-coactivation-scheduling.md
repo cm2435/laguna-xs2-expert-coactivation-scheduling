@@ -232,15 +232,22 @@ SGLang has two practical surfaces that make this project much easier:
 
 1. It can return routed experts.
 2. It already has a `routing-key` scheduling policy.
+3. The current SGLang source has native Laguna architecture support.
 
 Relevant local files inspected:
 
 - `/Users/charliemasters/Desktop/synced_vm_002/hackathon/repos/sglang/python/sglang/srt/state_capturer/routed_experts.py`
 - `/Users/charliemasters/Desktop/synced_vm_002/hackathon/repos/sglang/python/sglang/srt/managers/schedule_policy.py`
 - `/Users/charliemasters/Desktop/synced_vm_002/hackathon/repos/sglang/python/sglang/srt/entrypoints/openai/serving_base.py`
+- `/Users/charliemasters/Desktop/synced_vm_002/hackathon/repos/sglang/python/sglang/srt/configs/laguna.py`
+- `/Users/charliemasters/Desktop/synced_vm_002/hackathon/repos/sglang/python/sglang/srt/models/laguna.py`
+- `/Users/charliemasters/Desktop/synced_vm_002/hackathon/repos/sglang/python/sglang/srt/models/registry.py`
 
 The important SGLang facts:
 
+- `LagunaConfig` registers `model_type = "laguna"`.
+- `LagunaForCausalLM` is implemented as an inference-only SGLang model and exported as `EntryClass`.
+- SGLang's model registry imports `EntryClass` implementations from `sglang.srt.models`, so `LagunaForCausalLM` is discoverable when the checkpoint config advertises that architecture.
 - `RoutedExpertsCapturer` captures top-k routed experts per layer.
 - `--enable-return-routed-experts` enables routed-expert output.
 - The OpenAI-compatible server can accept `return_routed_experts`.
@@ -258,6 +265,8 @@ That means an MVP does not need a custom scheduler. We can:
 2. Assign each request a cluster id.
 3. Send the cluster id as `x-smg-routing-key`.
 4. Let SGLang's existing scheduler preferentially keep same-key requests together.
+
+Important caveat: this verifies **architecture support**, not every released checkpoint/quantization path. Poolside's public model cards include SGLang instructions for the base Laguna XS.2 model, while the FP8/NVFP4 cards should still be launch-tested on our target VM. The first implementation spike must therefore attempt to start SGLang with the exact checkpoint we plan to benchmark and run one `return_routed_experts` request. If a quantized checkpoint fails in SGLang, use the base/BF16 checkpoint for the SGLang scheduling experiment or fall back to vLLM for serving.
 
 ### Use vLLM for Baseline/Profiling, Not First Implementation
 
