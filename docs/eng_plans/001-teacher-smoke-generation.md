@@ -336,6 +336,91 @@ run_eval.py             -> evaluate teacher/student checkpoints
 
 `reports/` contains final hackathon tables, figures, and summaries. Commit final small reports, not raw logs.
 
+### File Responsibility Matrix
+
+The top-level layout is intentionally broader than this first engineering plan. Plan 001 implements the teacher smoke path; later plans fill in activation capture, surrogate training, assembly, and full evals. Use this matrix to keep boundaries crisp.
+
+#### Root Tooling Files
+
+| File | Plan | Responsibility |
+| --- | --- | --- |
+| `.python-version` | 001 | Pins the local Python version to `3.11` for `uv`. |
+| `pyproject.toml` | 001 | Defines package metadata, runtime deps, dev deps, pytest paths, and ruff settings. |
+| `uv.lock` | 001 | Locks exact dependency versions after `uv sync --extra dev`. |
+| `.gitignore` | 001 | Excludes virtualenvs, run outputs, rollouts, activations, checkpoints, and raw reports. |
+
+#### Config Files
+
+| File | Plan | Responsibility |
+| --- | --- | --- |
+| `configs/teacher_smoke_h100.yaml` | 001 | H100 teacher smoke config for Laguna XS.2: model id, dtype, prompt path, output path, generation settings. |
+| `configs/teacher_smoke_proxy.yaml` | 001 | Smaller proxy-model config for validating code paths when full Laguna is unavailable. |
+| `configs/activation_capture_h100.yaml` | 002 | Future config for replaying prompts through the teacher and capturing `(x_layer, y_teacher)` shards. |
+| `configs/train_surrogate_layer.yaml` | 003 | Future config for training one dense surrogate layer from saved activations. |
+| `configs/eval_tiny_coding.yaml` | 004 | Future config for running teacher/student coding evals against generated checkpoints. |
+
+#### Library Modules
+
+| File | Plan | Responsibility |
+| --- | --- | --- |
+| `src/densify/__init__.py` | 001 | Package marker and optional package version. No business logic. |
+| `src/densify/config.py` | 001 | Dataclasses and YAML loading for run configs. Converts paths and generation settings into typed config objects. |
+| `src/densify/teacher_loader.py` | 001 | Loads tokenizer and frozen teacher model with HF/PyTorch. Owns dtype mapping, `trust_remote_code`, `device_map`, eval mode, and parameter freezing. |
+| `src/densify/model_introspection.py` | 001 | Scans `model.named_modules()` for candidate Transformer/MoE modules and writes architecture summaries. Later plans can tighten Laguna-specific detection here. |
+| `src/densify/prompt_data.py` | 001 | Defines the prompt row schema and JSONL prompt loading. No model code and no generation code. |
+| `src/densify/generation.py` | 001 | Formats coding prompts and calls `model.generate`. Returns raw text, latency, and generated-token counts. |
+| `src/densify/code_scoring.py` | 001 | Extracts Python code from generations, checks syntax with `ast.parse`, and executes tiny unit tests in-process for smoke scoring. |
+| `src/densify/run_artifacts.py` | 001 | Creates run directories and writes JSON/JSONL artifacts in stable schemas. |
+| `src/densify/activation_capture.py` | 002 | Future module for registering forward pre-hooks/hooks, capturing `x_layer` and `y_teacher`, moving tensors to CPU, and writing activation shards. |
+| `src/densify/surrogate_modules.py` | 003 | Future module defining `DenseSurrogateMLP` and initialization helpers. |
+| `src/densify/training_data.py` | 003 | Future module for loading activation shards as PyTorch datasets/dataloaders. |
+| `src/densify/evals.py` | 004 | Future module for reusable eval runners across tiny coding, HumanEval/MBPP, CruxEval, and SWE-bench prompt subsets. |
+| `src/densify/metrics.py` | 004 | Future module for common metric calculations: parse rate, pass rate, latency, tokens/sec, reconstruction metrics, and summary tables. |
+
+#### Script Entry Points
+
+| File | Plan | Responsibility |
+| --- | --- | --- |
+| `scripts/build_python_smoke_prompts.py` | 001 | Writes the committed handcrafted Python smoke prompt file. |
+| `scripts/smoke_load_teacher.py` | 001 | Loads tokenizer/model, prints basic metadata, and writes `architecture.json`. |
+| `scripts/run_teacher_smoke_eval.py` | 001 | End-to-end teacher baseline: load prompts, generate completions, score code, and write run artifacts. |
+| `scripts/build_swebench_verified_tiny.py` | 001 | Converts a small Python-filtered SWE-bench Verified slice into prompt JSONL. This is a prompt source only, not full SWE-bench evaluation. |
+| `scripts/collect_rollouts.py` | 002 | Future script for generating/saving teacher rollouts from JSONL prompts or pool-derived prompts. |
+| `scripts/capture_activations.py` | 002 | Future script for replaying prompts with hooks and saving activation shards. |
+| `scripts/train_surrogate_layer.py` | 003 | Future script for training one surrogate layer from activation shards. |
+| `scripts/assemble_densified_model.py` | 003 | Future script for swapping trained surrogates into the teacher architecture and writing a densified checkpoint manifest. |
+| `scripts/run_eval.py` | 004 | Future script for evaluating teacher and densified checkpoints using a shared config. |
+
+#### Data and Artifact Directories
+
+| Path | Plan | Responsibility |
+| --- | --- | --- |
+| `data/prompts/*.jsonl` | 001+ | Small committed prompt definitions. Each row should have `id`, `prompt`, optional `entrypoint`, and optional `tests`. |
+| `data/rollouts/teacher_smoke/` | 002 | Generated teacher continuations for later replay. Large files stay uncommitted. |
+| `data/rollouts/pool_agent/` | 002 | Future pool/coding-agent trajectories converted into replayable prompt turns. |
+| `data/activations/teacher_laguna_xs2/layer_XX/` | 002 | Activation shard storage by teacher/model/run/layer. Never committed. |
+| `data/evals/*_results/` | 004 | Raw eval outputs, usually uncommitted unless converted into final report tables. |
+| `runs/teacher_smoke/` | 001 | Per-run teacher smoke artifacts: resolved config, architecture summary, generations, metrics, and examples. |
+| `runs/activation_capture/` | 002 | Future activation-capture logs and shard manifests. |
+| `runs/training/` | 003 | Future surrogate training logs, losses, and checkpoint manifests. |
+| `runs/evals/` | 004 | Future evaluation run summaries. |
+| `runs/inference_benchmarks/` | 004 | Future memory/tokens/sec benchmark outputs. |
+| `checkpoints/surrogate_layers/` | 003 | Future trained dense replacement layers. Never committed. |
+| `checkpoints/densified_model/` | 003 | Future assembled densified model checkpoints. Never committed. |
+| `inventory/*.md` | 002+ | Human-written registry of what models/data/hardware/checkpoints/experiments exist and why. |
+| `reports/` | 004 | Final hackathon-facing tables, figures, and summary. |
+
+#### Tests
+
+| File | Plan | Responsibility |
+| --- | --- | --- |
+| `tests/test_prompt_data.py` | 001 | Verifies JSONL prompt loading and row schema. |
+| `tests/test_code_scoring.py` | 001 | Verifies markdown code extraction, syntax checks, and smoke unit-test execution. |
+| `tests/test_run_artifacts.py` | 001 | Verifies run directory creation and JSON/JSONL writing. |
+| `tests/test_model_introspection.py` | 001 | Verifies candidate MoE/module scanning on fake modules. |
+| `tests/test_activation_capture.py` | 002 | Future hook tests using a fake block to confirm input/output capture semantics. |
+| `tests/test_surrogate_modules.py` | 003 | Future shape tests for dense surrogate MLPs and initialization helpers. |
+
 ### Git Tracking Policy
 
 Commit:
