@@ -4,3 +4,12 @@ runs/
 *.pyc
 __pycache__/
 .DS_Store
+.venv/
+.pytest_cache/
+.ruff_cache/
+.ty/
+data/rollouts/
+data/activations/
+data/evals/*_results/
+checkpoints/
+reports/raw/

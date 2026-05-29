@@ -1,0 +1,12 @@
+model_id: poolside/Laguna-XS.2-FP8
+torch_dtype: bfloat16
+trust_remote_code: true
+device_map: auto
+prompt_path: data/prompts/python_smoke.jsonl
+output_dir: runs/teacher_smoke
+generation:
+  max_new_tokens: 256
+  temperature: 0.2
+  top_p: 0.95
+  do_sample: false
+  batch_size: 1

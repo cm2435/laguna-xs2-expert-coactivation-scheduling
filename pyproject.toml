@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "laguna-xs2-densify"
+version = "0.1.0"
+description = "MoE densification experiments for Laguna XS.2"
+requires-python = ">=3.11"
+dependencies = [
+  "accelerate>=0.34",
+  "datasets>=2.20",
+  "einops>=0.8",
+  "numpy>=1.26",
+  "pyyaml>=6.0",
+  "safetensors>=0.4",
+  "torch>=2.3",
+  "tqdm>=4.66",
+  "transformers>=4.44"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2",
+  "ruff>=0.6",
+  "ty>=0.0.1a16"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/densify"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
