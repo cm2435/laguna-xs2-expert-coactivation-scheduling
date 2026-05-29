@@ -15,16 +15,14 @@ class ProbeHandler(BaseHTTPRequestHandler):
         if self.path == "/v1/v0/agents":
             self.write_json(
                 200,
-                {
-                    "agents": [
-                        {
-                            "id": "default",
-                            "name": "default",
-                            "display_name": "HF Laguna Probe",
-                            "models": [{"id": "hf-laguna-probe", "name": "hf-laguna-probe"}],
-                        }
-                    ]
-                },
+                [
+                    {
+                        "id": "default",
+                        "name": "default",
+                        "display_name": "HF Laguna Probe",
+                        "models": [{"id": "hf-laguna-probe", "name": "hf-laguna-probe"}],
+                    }
+                ],
             )
             return
         if self.path == "/v1/models":
