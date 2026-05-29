@@ -31,16 +31,21 @@ def format_coding_messages(prompt: CodingPrompt) -> list[dict[str, str]]:
 @torch.inference_mode()
 def generate_one(model, tokenizer, prompt: CodingPrompt, cfg: GenerationConfig) -> GenerationResult:
     device = first_model_device(model)
-    input_ids = tokenizer.apply_chat_template(
+    encoded = tokenizer.apply_chat_template(
         format_coding_messages(prompt),
         add_generation_prompt=True,
         return_tensors="pt",
         enable_thinking=cfg.enable_thinking,
-    ).to(device)
+    )
+    if isinstance(encoded, torch.Tensor):
+        inputs = {"input_ids": encoded.to(device)}
+    else:
+        inputs = {key: value.to(device) for key, value in encoded.items()}
+    input_ids = inputs["input_ids"]
     input_len = int(input_ids.shape[-1])
 
     generation_kwargs = {
-        "inputs": input_ids,
+        **inputs,
         "max_new_tokens": cfg.max_new_tokens,
         "do_sample": cfg.do_sample,
         "pad_token_id": tokenizer.pad_token_id,
