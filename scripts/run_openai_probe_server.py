@@ -143,7 +143,7 @@ class ProbeHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("content-type", "text/event-stream")
         self.send_header("cache-control", "no-cache")
-        self.send_header("connection", "keep-alive")
+        self.send_header("connection", "close")
         self.end_headers()
 
         model = payload.get("model", "hf-laguna-probe")
@@ -156,7 +156,20 @@ class ProbeHandler(BaseHTTPRequestHandler):
                 "choices": [
                     {
                         "index": 0,
-                        "delta": {"role": "assistant", "content": "READY"},
+                        "delta": {"role": "assistant"},
+                        "finish_reason": None,
+                    }
+                ],
+            },
+            {
+                "id": "chatcmpl-probe",
+                "object": "chat.completion.chunk",
+                "created": 0,
+                "model": model,
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"content": "READY"},
                         "finish_reason": None,
                     }
                 ],
@@ -167,6 +180,13 @@ class ProbeHandler(BaseHTTPRequestHandler):
                 "created": 0,
                 "model": model,
                 "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+            },
+            {
+                "id": "chatcmpl-probe",
+                "object": "chat.completion.chunk",
+                "created": 0,
+                "model": model,
+                "choices": [],
                 "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
             },
         ]
@@ -175,6 +195,7 @@ class ProbeHandler(BaseHTTPRequestHandler):
             self.wfile.flush()
         self.wfile.write(b"data: [DONE]\n\n")
         self.wfile.flush()
+        self.close_connection = True
 
     def write_json(self, status: int, payload: Any) -> None:
         data = json.dumps(payload).encode("utf-8")
