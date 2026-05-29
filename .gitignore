@@ -1,5 +1,6 @@
 _deps/
 repos/
+.worktrees/
 runs/
 *.pyc
 __pycache__/
