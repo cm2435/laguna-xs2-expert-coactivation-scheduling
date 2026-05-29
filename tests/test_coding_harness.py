@@ -57,6 +57,14 @@ def test_tool_executor_accepts_absolute_repo_paths_and_blocks_installs(tmp_path)
     assert compound.ok is False
     assert "blocked command" in compound.output
 
+    checkout = executor.execute("shell", {"command": "git checkout main"})
+    assert checkout.ok is False
+    assert "destructive git" in checkout.output
+
+    compound_checkout = executor.execute("shell", {"command": "pwd && git checkout main"})
+    assert compound_checkout.ok is False
+    assert "destructive git" in compound_checkout.output
+
 
 class DummyChatHandler(BaseHTTPRequestHandler):
     seen_payloads = []

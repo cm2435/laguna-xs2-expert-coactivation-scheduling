@@ -27,6 +27,11 @@ class ToolExecutor:
         ("apt-get", "update"),
         ("conda", "install"),
         ("mamba", "install"),
+        ("git", "checkout"),
+        ("git", "switch"),
+        ("git", "reset"),
+        ("git", "clean"),
+        ("git", "restore"),
     )
 
     def __init__(
@@ -64,8 +69,9 @@ class ToolExecutor:
             return ToolResult(
                 "shell",
                 False,
-                "blocked command: package manager and system install commands are disabled "
-                "for rollouts. Inspect and edit the repo using existing tools.",
+                "blocked command: package-manager, system-install, and destructive git "
+                "commands are disabled for rollouts. Inspect and edit the repo using "
+                "existing tools.",
             )
         try:
             result = subprocess.run(
