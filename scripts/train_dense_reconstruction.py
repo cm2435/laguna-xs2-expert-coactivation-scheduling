@@ -111,12 +111,13 @@ def parse_layer_ids(value: str | None) -> list[int] | None:
     return [int(item.strip()) for item in value.split(",") if item.strip()]
 
 
-def mixed_rows(specs, split, streaming):
-    """Probabilistically interleave several streaming datasets by weight."""
+def mixed_rows(specs, default_split, streaming):
+    """Probabilistically interleave several streaming datasets by weight.
+    specs: list of (name, weight, split) — split may differ per dataset."""
     import random
     rng = random.Random(0)
-    iters = [iter(load_dataset(n, split=split, streaming=streaming)) for n, _ in specs]
-    weights = [w for _, w in specs]
+    iters = [iter(load_dataset(n, split=sp, streaming=streaming)) for n, _, sp in specs]
+    weights = [w for _, w, _ in specs]
     alive = [True] * len(iters)
     while any(alive):
         idxs = [i for i in range(len(iters)) if alive[i]]
@@ -172,8 +173,11 @@ def main() -> None:
     if args.datasets:
         specs = []
         for item in args.datasets.split(","):
-            name, _, w = item.strip().partition(":")
-            specs.append((name.strip(), float(w) if w else 1.0))
+            parts = [p.strip() for p in item.strip().split(":")]
+            name = parts[0]
+            w = float(parts[1]) if len(parts) > 1 and parts[1] else 1.0
+            sp = parts[2] if len(parts) > 2 and parts[2] else args.split
+            specs.append((name, w, sp))
         rows: Iterable[dict[str, Any]] = mixed_rows(specs, args.split, args.streaming)
         dataset_desc = args.datasets
     else:
