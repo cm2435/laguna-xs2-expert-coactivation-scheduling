@@ -1,0 +1,45 @@
+task_id: django__django-14170
+suite: swebench_verified
+repo: django/django
+repo_id: django__django
+base_commit: 6efc35b4fe3009666e56a60af0675d7d532bf4ff
+problem_statement: "Query optimization in YearLookup breaks filtering by \"__iso_year\"\
+  \nDescription\n\t \n\t\t(last modified by Florian Demmer)\n\t \nThe optimization\
+  \ to use BETWEEN instead of the EXTRACT operation in \u200BYearLookup is also registered\
+  \ for the \u200B\"__iso_year\" lookup, which breaks the functionality provided by\
+  \ \u200BExtractIsoYear when used via the lookup.\nThis has unfortunately been broken\
+  \ ever since ExtractIsoYear was introduced in \u200BDjango 2.2 via #28649 and wasn't\
+  \ easy to track down since ExtractIsoYear when used by itself eg. in an annotation\
+  \ works perfectly fine. Just when using the lookup in a filter, the optimization\
+  \ is used (even when explicitly using an annotation):\n# annotation works\n>>> qs\
+  \ = DTModel.objects.annotate(extracted=ExtractIsoYear('start_date')).only('id')\n\
+  >>> print(qs.query)\nSELECT \"db_functions_dtmodel\".\"id\", EXTRACT('isoyear' FROM\
+  \ \"db_functions_dtmodel\".\"start_date\") AS \"extracted\" FROM \"db_functions_dtmodel\"\
+  \n# explicit annotation used in filter does not use \"extracted\" and adds BETWEEN\n\
+  >>> print(qs.filter(extracted=2020).query)\nSELECT \"db_functions_dtmodel\".\"id\"\
+  , EXTRACT('isoyear' FROM \"db_functions_dtmodel\".\"start_date\") AS \"extracted\"\
+  \ FROM \"db_functions_dtmodel\" WHERE \"db_functions_dtmodel\".\"start_date\" BETWEEN\
+  \ 2020-01-01 AND 2020-12-31\n# implicit lookup uses BETWEEN\n>>> print(DTModel.objects.filter(start_date__iso_year=2020).only('id').query)\n\
+  SELECT \"db_functions_dtmodel\".\"id\" FROM \"db_functions_dtmodel\" WHERE \"db_functions_dtmodel\"\
+  .\"start_date\" BETWEEN 2020-01-01 AND 2020-12-31\nThis results in the wrong data\
+  \ being returned by filters using iso_year.\nThis PR fixes the behaviour, reverts\
+  \ the invalid changes to the tests and extends one test to catch this problem: \u200B\
+  https://github.com/django/django/pull/14157\n"
+visible_to_model:
+  issue_statement: true
+  public_tests: false
+  hidden_tests: false
+environment:
+  template_path: envs/repo_templates/django__django/6efc35b4fe3009666e56a60af0675d7d532bf4ff/repo
+  setup_command: python -m pip install -e .
+  smoke_command: ''
+grader:
+  hidden_command: uv run python scripts/grade_task_sandbox.py --task tasks/swebench_verified/django__django-14170.yaml
+    --sandbox {sandbox}
+limits:
+  timeout_s: 1800
+  max_turns: 30
+  network: disabled
+metadata:
+  dataset: princeton-nlp/SWE-bench_Verified
+  instance_id: django__django-14170

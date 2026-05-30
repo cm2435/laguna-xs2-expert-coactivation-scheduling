@@ -1,0 +1,26 @@
+task_id: sympy__sympy-19637
+suite: swebench_verified
+repo: sympy/sympy
+repo_id: sympy__sympy
+base_commit: 63f8f465d48559fecb4e4bf3c48b75bf15a3e0ef
+problem_statement: "kernS: 'kern' referenced before assignment\nfrom sympy.core.sympify\
+  \ import kernS\r\n\r\ntext = \"(2*x)/(x-1)\"\r\nexpr = kernS(text)  \r\n//  hit\
+  \ = kern in s\r\n// UnboundLocalError: local variable 'kern' referenced before assignment\n"
+visible_to_model:
+  issue_statement: true
+  public_tests: false
+  hidden_tests: false
+environment:
+  template_path: envs/repo_templates/sympy__sympy/63f8f465d48559fecb4e4bf3c48b75bf15a3e0ef/repo
+  setup_command: python -m pip install -e .
+  smoke_command: ''
+grader:
+  hidden_command: uv run python scripts/grade_task_sandbox.py --task tasks/swebench_verified/sympy__sympy-19637.yaml
+    --sandbox {sandbox}
+limits:
+  timeout_s: 1800
+  max_turns: 30
+  network: disabled
+metadata:
+  dataset: princeton-nlp/SWE-bench_Verified
+  instance_id: sympy__sympy-19637

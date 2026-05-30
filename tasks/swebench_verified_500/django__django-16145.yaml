@@ -1,0 +1,31 @@
+task_id: django__django-16145
+suite: swebench_verified
+repo: django/django
+repo_id: django__django
+base_commit: 93d4c9ea1de24eb391cb2b3561b6703fd46374df
+problem_statement: "`runserver 0`'s \"Starting development server at <address>\" doesn't\
+  \ work\nDescription\n\t\nAccording to \u200Btutorial running \npython manage.py\
+  \ runserver 0:8000\nis the same as \npython manage.py runserver 0.0.0.0:8000\nbut\
+  \ it's output \n$ python manage.py runserver 0:8000\t\t\t\t\t\t\t\t\t Watching for\
+  \ file changes with StatReloader\t\t\t\t\t\t \n...\nStarting development server\
+  \ at http://0:8000/ \n...\nSo that you can't use link \"\u200Bhttp://0:8000/\" in\
+  \ your browser. Output should be \"Starting development server at \u200Bhttp://0.0.0.0:8000/\"\
+  \ when providing \"0:8000\" in command line in order to stay consistent with docs.\n"
+visible_to_model:
+  issue_statement: true
+  public_tests: false
+  hidden_tests: false
+environment:
+  template_path: envs/repo_templates/django__django/93d4c9ea1de24eb391cb2b3561b6703fd46374df/repo
+  setup_command: python -m pip install -e .
+  smoke_command: ''
+grader:
+  hidden_command: uv run python scripts/grade_task_sandbox.py --task tasks/swebench_verified/django__django-16145.yaml
+    --sandbox {sandbox}
+limits:
+  timeout_s: 1800
+  max_turns: 30
+  network: disabled
+metadata:
+  dataset: princeton-nlp/SWE-bench_Verified
+  instance_id: django__django-16145

@@ -1,0 +1,70 @@
+{
+  "num_rollouts": 206,
+  "num_rows": 1623,
+  "first_action_tool_counts": {
+    "shell": 121,
+    "read_file": 66,
+    "apply_patch": 19
+  },
+  "example_type_counts": {
+    "exploration_first": 35,
+    "ambiguous_first_action": 31,
+    "failure_then_recovery": 72,
+    "patch_recovery": 39,
+    "read_file_positive": 21,
+    "test_recovery": 8
+  },
+  "failure_type_counts": {
+    "none": 56,
+    "pr_url_as_path": 18,
+    "repeated_repo_path": 22,
+    "file_not_found": 18,
+    "empty_grep": 17,
+    "patch_context_failure": 19,
+    "malformed_patch": 20,
+    "late_turn_failure": 15,
+    "ambiguous_module": 13,
+    "test_failure": 8
+  },
+  "recovery_action_counts": {
+    "shell_grep": 53,
+    "shell_find_or_grep": 22,
+    "shell_explore": 18,
+    "broaden_search": 17,
+    "read_context": 19,
+    "construct_real_patch": 20,
+    "late_recovery": 15,
+    "multi_candidate_explore": 13,
+    "none": 21,
+    "inspect_test_failure": 8
+  },
+  "target_tool_counts": {
+    "shell": 1015,
+    "read_file": 189,
+    "apply_patch": 213,
+    "exit": 206
+  },
+  "repo_counts": {
+    "django/django": 65,
+    "sympy/sympy": 25,
+    "sphinx-doc/sphinx": 15,
+    "matplotlib/matplotlib": 16,
+    "scikit-learn/scikit-learn": 22,
+    "astropy/astropy": 13,
+    "pydata/xarray": 17,
+    "pytest-dev/pytest": 12,
+    "pylint-dev/pylint": 7,
+    "pallets/flask": 4,
+    "psf/requests": 7,
+    "mwaskom/seaborn": 3
+  },
+  "scheme_leak_count": 0,
+  "think_leak_count": 0,
+  "parseable_tool_call_rows": 1623,
+  "child_facing_think_rows": 1623,
+  "failed_observation_prefix_rows": 748,
+  "empty_target_rows": 0,
+  "unknown_tool_rows": 0,
+  "passes_hard_balance": true,
+  "hard_failures": []
+}

@@ -17,7 +17,7 @@ def select_tasks_by_repo(
     rows: list[dict[str, Any]],
     repo_counts: dict[str, int],
 ) -> list[dict[str, Any]]:
-    selected: list[dict[str, Any]] = []
+    by_repo: dict[str, list[dict[str, Any]]] = {repo: [] for repo in repo_counts}
     counts = {repo: 0 for repo in repo_counts}
     for row in rows:
         repo = str(row.get("repo", ""))
@@ -25,11 +25,29 @@ def select_tasks_by_repo(
             continue
         if counts[repo] >= repo_counts[repo]:
             continue
-        selected.append(row)
+        by_repo[repo].append(row)
         counts[repo] += 1
         if all(counts[name] >= target for name, target in repo_counts.items()):
             break
+
+    selected: list[dict[str, Any]] = []
+    max_count = max(repo_counts.values(), default=0)
+    for index in range(max_count):
+        for repo in repo_counts:
+            if index < len(by_repo[repo]):
+                selected.append(by_repo[repo][index])
     return selected
+
+
+def select_tasks_from_config(rows: list[dict[str, Any]], cfg: dict[str, Any]) -> list[dict[str, Any]]:
+    if bool(cfg.get("all_tasks", False)):
+        target_total = int(cfg.get("target_total", len(rows)))
+        return rows[:target_total]
+
+    repo_counts = {str(repo): int(count) for repo, count in dict(cfg["repos"]).items()}
+    selected = select_tasks_by_repo(rows, repo_counts)
+    target_total = int(cfg.get("target_total", sum(repo_counts.values())))
+    return selected[:target_total]
 
 
 def manifest_from_swebench_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -117,9 +135,6 @@ def build_manifests_from_config(config_path: str | Path) -> list[dict[str, Any]]
     cfg = load_yaml(config_path)
     dataset = load_dataset(str(cfg["dataset"]), split=str(cfg.get("split", "test")))
     rows = [dict(row) for row in dataset]
-    repo_counts = {str(repo): int(count) for repo, count in dict(cfg["repos"]).items()}
-    selected = select_tasks_by_repo(rows, repo_counts)
-    target_total = int(cfg.get("target_total", sum(repo_counts.values())))
-    selected = selected[:target_total]
+    selected = select_tasks_from_config(rows, cfg)
     write_task_manifests(selected, Path(cfg["output_dir"]), Path(cfg["registry_path"]))
     return selected

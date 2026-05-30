@@ -10,6 +10,8 @@ from densify.tasks.manifest import TaskManifest, iter_registry, load_task_manife
 def prepare_repo_template(task: TaskManifest) -> Path:
     repo_path = task.environment.template_path
     if (repo_path / ".git").exists():
+        subprocess.run(["git", "-C", str(repo_path), "checkout", "--force", task.base_commit], check=True)
+        subprocess.run(["git", "-C", str(repo_path), "clean", "-fdx"], check=True)
         return repo_path
 
     repo_path.parent.mkdir(parents=True, exist_ok=True)
@@ -29,10 +31,21 @@ def prepare_repo_template(task: TaskManifest) -> Path:
     return repo_path
 
 
-def prepare_repo_templates_from_registry(registry_path: str | Path) -> list[Path]:
+def prepare_repo_templates_from_registry(
+    registry_path: str | Path,
+    *,
+    offset: int = 0,
+    limit: int | None = None,
+) -> list[Path]:
     prepared: list[Path] = []
     seen: set[Path] = set()
-    for manifest_path in iter_registry(registry_path):
+    manifest_paths = iter_registry(registry_path)
+    if offset:
+        manifest_paths = manifest_paths[offset:]
+    if limit is not None:
+        manifest_paths = manifest_paths[:limit]
+
+    for manifest_path in manifest_paths:
         task = load_task_manifest(manifest_path)
         if task.environment.template_path in seen:
             continue

@@ -4,7 +4,11 @@ import json
 
 import yaml
 
-from densify.swebench.task_selection import manifest_from_swebench_row, select_tasks_by_repo
+from densify.swebench.task_selection import (
+    manifest_from_swebench_row,
+    select_tasks_by_repo,
+    select_tasks_from_config,
+)
 
 
 def test_select_tasks_by_repo_respects_repo_counts() -> None:
@@ -15,6 +19,18 @@ def test_select_tasks_by_repo_respects_repo_counts() -> None:
     ]
 
     selected = select_tasks_by_repo(rows, {"a/a": 1, "b/b": 1})
+
+    assert [row["instance_id"] for row in selected] == ["a1", "b1"]
+
+
+def test_select_tasks_from_config_can_select_all_tasks() -> None:
+    rows = [
+        {"instance_id": "a1", "repo": "a/a"},
+        {"instance_id": "b1", "repo": "b/b"},
+        {"instance_id": "c1", "repo": "c/c"},
+    ]
+
+    selected = select_tasks_from_config(rows, {"all_tasks": True, "target_total": 2})
 
     assert [row["instance_id"] for row in selected] == ["a1", "b1"]
 

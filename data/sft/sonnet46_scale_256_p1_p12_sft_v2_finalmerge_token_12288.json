@@ -1,0 +1,654 @@
+{
+  "row_count": 1636,
+  "valid_row_count": 1636,
+  "invalid_row_count": 0,
+  "assistant_target_count": 1636,
+  "non_assistant_target_count": 0,
+  "tool_call_target_count": 0,
+  "empty_target_count": 0,
+  "quality_counts": {
+    "recovery_synthetic": 1636
+  },
+  "target_token_lengths": {
+    "min": 49,
+    "max": 2117,
+    "mean": 178.66075794621028
+  },
+  "full_token_lengths": {
+    "min": 176,
+    "max": 8880,
+    "mean": 2113.175427872861
+  },
+  "trainable_token_lengths": {
+    "min": 49,
+    "max": 2117,
+    "mean": 178.66075794621028
+  },
+  "invalid_rows": [],
+  "examples": [
+    {
+      "id": "django__django-11163:P1:assistant_0001",
+      "prefix_preview": "\u3008|EOS|\u3009<system>\n\nYou are a coding agent. You have access to tools: read_file, shell, apply_patch, and exit. Use them to investigate and fix bugs in the repository. Think step by step and recover from failures by trying different approaches.\n</system>\n<user>\nFix the following bug in the django/django repository:\n\nmodel_to_dict() should return an empty dict for an empty list of fields.\n\nWhen called as model_to_dict(instance, fields=[]) the function should return an empty dict, because no fields were requested. But it returns all fields instead.\n\nThe problem is the condition:\n  if fields and f.name not in fields:\nwhich should be:\n  if fields is not None and f.name not in fields:\n\nPlease locate the relevant code and apply the fix.\n</user>\n<assistant>\n<think>",
+      "target_preview": "\nThe issue names the function `model_to_dict` but doesn't give a file path. I know it's somewhere in the Django codebase, but I shouldn't guess \u2014 the symbol name alone is not enough to infer a reliable path. I'll use grep to find exactly where it's defined.\n</think>\n<tool_call>shell\n<arg_key>command</arg_key>\n<arg_value>grep -rn \"def model_to_dict\" /repo</arg_value>\n</tool_call>\n</assistant>\n",
+      "input_token_count": 277,
+      "trainable_token_count": 100,
+      "first_trainable_index": 177,
+      "masked_decoded_tail": [
+        {
+          "index": 153,
+          "token_id": 4853,
+          "train": false,
+          "decoded": ".name"
+        },
+        {
+          "index": 154,
+          "token_id": 572,
+          "train": false,
+          "decoded": " not"
+        },
+        {
+          "index": 155,
+          "token_id": 365,
+          "train": false,
+          "decoded": " in"
+        },
+        {
+          "index": 156,
+          "token_id": 3479,
+          "train": false,
+          "decoded": " fields"
+        },
+        {
+          "index": 157,
+          "token_id": 95,
+          "train": false,
+          "decoded": ":"
+        },
+        {
+          "index": 158,
+          "token_id": 350,
+          "train": false,
+          "decoded": "\n\n"
+        },
+        {
+          "index": 159,
+          "token_id": 7080,
+          "train": false,
+          "decoded": "Please"
+        },
+        {
+          "index": 160,
+          "token_id": 15481,
+          "train": false,
+          "decoded": " locate"
+        },
+        {
+          "index": 161,
+          "token_id": 340,
+          "train": false,
+          "decoded": " the"
+        },
+        {
+          "index": 162,
+          "token_id": 5099,
+          "train": false,
+          "decoded": " relevant"
+        },
+        {
+          "index": 163,
+          "token_id": 901,
+          "train": false,
+          "decoded": " code"
+        },
+        {
+          "index": 164,
+          "token_id": 372,
+          "train": false,
+          "decoded": " and"
+        },
+        {
+          "index": 165,
+          "token_id": 3138,
+          "train": false,
+          "decoded": " apply"
+        },
+        {
+          "index": 166,
+          "token_id": 340,
+          "train": false,
+          "decoded": " the"
+        },
+        {
+          "index": 167,
+          "token_id": 2108,
+          "train": false,
+          "decoded": " fix"
+        },
+        {
+          "index": 168,
+          "token_id": 83,
+          "train": false,
+          "decoded": "."
+        },
+        {
+          "index": 169,
+          "token_id": 268,
+          "train": false,
+          "decoded": "\n"
+        },
+        {
+          "index": 170,
+          "token_id": 532,
+          "train": false,
+          "decoded": "</"
+        },
+        {
+          "index": 171,
+          "token_id": 1437,
+          "train": false,
+          "decoded": "user"
+        },
+        {
+          "index": 172,
+          "token_id": 99,
+          "train": false,
+          "decoded": ">"
+        },
+        {
+          "index": 173,
+          "token_id": 268,
+          "train": false,
+          "decoded": "\n"
+        },
+        {
+          "index": 174,
+          "token_id": 23,
+          "train": false,
+          "decoded": "<assistant>"
+        },
+        {
+          "index": 175,
+          "token_id": 268,
+          "train": false,
+          "decoded": "\n"
+        },
+        {
+          "index": 176,
+          "token_id": 18,
+          "train": false,
+          "decoded": "<think>"
+        },
+        {
+          "index": 177,
+          "token_id": 268,
+          "train": true,
+          "decoded": "\n"
+        },
+        {
+          "index": 178,
+          "token_id": 785,
+          "train": true,
+          "decoded": "The"
+        },
+        {
+          "index": 179,
+          "token_id": 1796,
+          "train": true,
+          "decoded": " issue"
+        },
+        {
+          "index": 180,
+          "token_id": 2732,
+          "train": true,
+          "decoded": " names"
+        },
+        {
+          "index": 181,
+          "token_id": 340,
+          "train": true,
+          "decoded": " the"
+        },
+        {
+          "index": 182,
+          "token_id": 727,
+          "train": true,
+          "decoded": " function"
+        },
+        {
+          "index": 183,
+          "token_id": 430,
+          "train": true,
+          "decoded": " `"
+        },
+        {
+          "index": 184,
+          "token_id": 5051,
+          "train": true,
+          "decoded": "model"
+        },
+        {
+          "index": 185,
+          "token_id": 3410,
+          "train": true,
+          "decoded": "_to"
+        },
+        {
+          "index": 186,
+          "token_id": 8765,
+          "train": true,
+          "decoded": "_dict"
+        },
+        {
+          "index": 187,
+          "token_id": 133,
+          "train": true,
+          "decoded": "`"
+        },
+        {
+          "index": 188,
+          "token_id": 705,
+          "train": true,
+          "decoded": " but"
+        },
+        {
+          "index": 189,
+          "token_id": 2871,
+          "train": true,
+          "decoded": " doesn"
+        },
+        {
+          "index": 190,
+          "token_id": 861,
+          "train": true,
+          "decoded": "'t"
+        },
+        {
+          "index": 191,
+          "token_id": 3503,
+          "train": true,
+          "decoded": " give"
+        },
+        {
+          "index": 192,
+          "token_id": 330,
+          "train": true,
+          "decoded": " a"
+        },
+        {
+          "index": 193,
+          "token_id": 908,
+          "train": true,
+          "decoded": " file"
+        },
+        {
+          "index": 194,
+          "token_id": 1823,
+          "train": true,
+          "decoded": " path"
+        },
+        {
+          "index": 195,
+          "token_id": 83,
+          "train": true,
+          "decoded": "."
+        },
+        {
+          "index": 196,
+          "token_id": 397,
+          "train": true,
+          "decoded": " I"
+        },
+        {
+          "index": 197,
+          "token_id": 1560,
+          "train": true,
+          "decoded": " know"
+        },
+        {
+          "index": 198,
+          "token_id": 472,
+          "train": true,
+          "decoded": " it"
+        },
+        {
+          "index": 199,
+          "token_id": 604,
+          "train": true,
+          "decoded": "'s"
+        },
+        {
+          "index": 200,
+          "token_id": 14108,
+          "train": true,
+          "decoded": " somewhere"
+        }
+      ]
+    },
+    {
+      "id": "django__django-11163:P1:assistant_0002",
+      "prefix_preview": "nd exit. Use them to investigate and fix bugs in the repository. Think step by step and recover from failures by trying different approaches.\n</system>\n<user>\nFix the following bug in the django/django repository:\n\nmodel_to_dict() should return an empty dict for an empty list of fields.\n\nWhen called as model_to_dict(instance, fields=[]) the function should return an empty dict, because no fields were requested. But it returns all fields instead.\n\nThe problem is the condition:\n  if fields and f.name not in fields:\nwhich should be:\n  if fields is not None and f.name not in fields:\n\nPlease locate the relevant code and apply the fix.\n</user>\n<assistant>\n<think>\nThe issue names the function `model_to_dict` but doesn't give a file path. I know it's somewhere in the Django codebase, but I shouldn't guess \u2014 the symbol name alone is not enough to infer a reliable path. I'll use grep to find exactly where it's defined.\n</think>\n<tool_call>shell\n<arg_key>command</arg_key>\n<arg_value>grep -rn \"def model_to_dict\" /repo</arg_value>\n</tool_call>\n</assistant>\n<tool_response>\n/repo/django/forms/models.py:88:def model_to_dict(instance, fields=None, exclude=None):\n</tool_response>\n<assistant>\n<think>",
+      "target_preview": "\nFound it: django/forms/models.py line 88. Now I'll read the function body to see the exact condition that needs fixing.\n</think>\n<tool_call>read_file\n<arg_key>path</arg_key>\n<arg_value>/repo/django/forms/models.py</arg_value>\n</tool_call>\n</assistant>\n",
+      "input_token_count": 375,
+      "trainable_token_count": 64,
+      "first_trainable_index": 311,
+      "masked_decoded_tail": [
+        {
+          "index": 287,
+          "token_id": 95,
+          "train": false,
+          "decoded": ":"
+        },
+        {
+          "index": 288,
+          "token_id": 93,
+          "train": false,
+          "decoded": "8"
+        },
+        {
+          "index": 289,
+          "token_id": 93,
+          "train": false,
+          "decoded": "8"
+        },
+        {
+          "index": 290,
+          "token_id": 52044,
+          "train": false,
+          "decoded": ":def"
+        },
+        {
+          "index": 291,
+          "token_id": 1157,
+          "train": false,
+          "decoded": " model"
+        },
+        {
+          "index": 292,
+          "token_id": 3410,
+          "train": false,
+          "decoded": "_to"
+        },
+        {
+          "index": 293,
+          "token_id": 8765,
+          "train": false,
+          "decoded": "_dict"
+        },
+        {
+          "index": 294,
+          "token_id": 35659,
+          "train": false,
+          "decoded": "(instance"
+        },
+        {
+          "index": 295,
+          "token_id": 81,
+          "train": false,
+          "decoded": ","
+        },
+        {
+          "index": 296,
+          "token_id": 3479,
+          "train": false,
+          "decoded": " fields"
+        },
+        {
+          "index": 297,
+          "token_id": 8887,
+          "train": false,
+          "decoded": "=None"
+        },
+        {
+          "index": 298,
+          "token_id": 81,
+          "train": false,
+          "decoded": ","
+        },
+        {
+          "index": 299,
+          "token_id": 15587,
+          "train": false,
+          "decoded": " exclude"
+        },
+        {
+          "index": 300,
+          "token_id": 8887,
+          "train": false,
+          "decoded": "=None"
+        },
+        {
+          "index": 301,
+          "token_id": 1117,
+          "train": false,
+          "decoded": "):"
+        },
+        {
+          "index": 302,
+          "token_id": 268,
+          "train": false,
+          "decoded": "\n"
+        },
+        {
+          "index": 303,
+          "token_id": 532,
+          "train": false,
+          "decoded": "</"
+        },
+        {
+          "index": 304,
+          "token_id": 11525,
+          "train": false,
+          "decoded": "tool"
+        },
+        {
+          "index": 305,
+          "token_id": 18390,
+          "train": false,
+          "decoded": "_response"
+        },
+        {
+          "index": 306,
+          "token_id": 99,
+          "train": false,
+          "decoded": ">"
+        },
+        {
+          "index": 307,
+          "token_id": 268,
+          "train": false,
+          "decoded": "\n"
+        },
+        {
+          "index": 308,
+          "token_id": 23,
+          "train": false,
+          "decoded": "<assistant>"
+        },
+        {
+          "index": 309,
+          "token_id": 268,
+          "train": false,
+          "decoded": "\n"
+        },
+        {
+          "index": 310,
+          "token_id": 18,
+          "train": false,
+          "decoded": "<think>"
+        },
+        {
+          "index": 311,
+          "token_id": 268,
+          "train": true,
+          "decoded": "\n"
+        },
+        {
+          "index": 312,
+          "token_id": 8135,
+          "train": true,
+          "decoded": "Found"
+        },
+        {
+          "index": 313,
+          "token_id": 472,
+          "train": true,
+          "decoded": " it"
+        },
+        {
+          "index": 314,
+          "token_id": 95,
+          "train": true,
+          "decoded": ":"
+        },
+        {
+          "index": 315,
+          "token_id": 16715,
+          "train": true,
+          "decoded": " django"
+        },
+        {
+          "index": 316,
+          "token_id": 45443,
+          "train": true,
+          "decoded": "/forms"
+        },
+        {
+          "index": 317,
+          "token_id": 31643,
+          "train": true,
+          "decoded": "/models"
+        },
+        {
+          "index": 318,
+          "token_id": 5395,
+          "train": true,
+          "decoded": ".py"
+        },
+        {
+          "index": 319,
+          "token_id": 1454,
+          "train": true,
+          "decoded": " line"
+        },
+        {
+          "index": 320,
+          "token_id": 290,
+          "train": true,
+          "decoded": " "
+        },
+        {
+          "index": 321,
+          "token_id": 93,
+          "train": true,
+          "decoded": "8"
+        },
+        {
+          "index": 322,
+          "token_id": 93,
+          "train": true,
+          "decoded": "8"
+        },
+        {
+          "index": 323,
+          "token_id": 83,
+          "train": true,
+          "decoded": "."
+        },
+        {
+          "index": 324,
+          "token_id": 4943,
+          "train": true,
+          "decoded": " Now"
+        },
+        {
+          "index": 325,
+          "token_id": 397,
+          "train": true,
+          "decoded": " I"
+        },
+        {
+          "index": 326,
+          "token_id": 3091,
+          "train": true,
+          "decoded": "'ll"
+        },
+        {
+          "index": 327,
+          "token_id": 1235,
+          "train": true,
+          "decoded": " read"
+        },
+        {
+          "index": 328,
+          "token_id": 340,
+          "train": true,
+          "decoded": " the"
+        },
+        {
+          "index": 329,
+          "token_id": 727,
+          "train": true,
+          "decoded": " function"
+        },
+        {
+          "index": 330,
+          "token_id": 4116,
+          "train": true,
+          "decoded": " body"
+        },
+        {
+          "index": 331,
+          "token_id": 367,
+          "train": true,
+          "decoded": " to"
+        },
+        {
+          "index": 332,
+          "token_id": 1481,
+          "train": true,
+          "decoded": " see"
+        },
+        {
+          "index": 333,
+          "token_id": 340,
+          "train": true,
+          "decoded": " the"
+        },
+        {
+          "index": 334,
+          "token_id": 3684,
+          "train": true,
+          "decoded": " exact"
+        }
+      ]
+    }
+  ],
+  "template_examples": [
+    {
+      "id": "django__django-11163:P1:assistant_0001",
+      "has_chat_template": true,
+      "active_render_source": "chat_template",
+      "manual_token_count": 275,
+      "chat_template_token_count": 277,
+      "token_count_delta": 2,
+      "chat_to_manual_token_ratio": 1.0072727272727273,
+      "manual_preview": "<system>\nYou are a coding agent. You have access to tools: read_file, shell, apply_patch, and exit. Use them to investigate and fix bugs in the repository. Think step by step and recover from failures by trying different approaches.\n</system>\n<user>\nFix the following bug in the django/django repository:\n\nmodel_to_dict() should return an empty dict for an empty list of fields.\n\nWhen called as model_to_dict(instance, fields=[]) the function should return an empty dict, because no fields were requested. But it returns all fields instead.\n\nThe problem is the condition:\n  if fields and f.name not in fields:\nwhich should be:\n  if fields is not None and f.name not in fields:\n\nPlease locate the relevant code and apply the fix.\n</user>\n<assistant>\n<think>\nThe issue names the function `model_to_dict` but doesn't give a file path. I know it's somewhere in the Django codebase, but I shouldn't guess \u2014 the symbol name alone is not enough to infer a reliable path. I'll use grep to find exactly where it's defined.\n</think>\n<tool_call>shell\n<arg_key>command</arg_key>\n<arg_value>grep -rn \"def model_to_dict\" /repo</arg_value>\n</tool_call>\n</assistant>",
+      "active_prefix_preview": "\u3008|EOS|\u3009<system>\n\nYou are a coding agent. You have access to tools: read_file, shell, apply_patch, and exit. Use them to investigate and fix bugs in the repository. Think step by step and recover from failures by trying different approaches.\n</system>\n<user>\nFix the following bug in the django/django repository:\n\nmodel_to_dict() should return an empty dict for an empty list of fields.\n\nWhen called as model_to_dict(instance, fields=[]) the function should return an empty dict, because no fields were requested. But it returns all fields instead.\n\nThe problem is the condition:\n  if fields and f.name not in fields:\nwhich should be:\n  if fields is not None and f.name not in fields:\n\nPlease locate the relevant code and apply the fix.\n</user>\n<assistant>\n<think>",
+      "active_target_preview": "\nThe issue names the function `model_to_dict` but doesn't give a file path. I know it's somewhere in the Django codebase, but I shouldn't guess \u2014 the symbol name alone is not enough to infer a reliable path. I'll use grep to find exactly where it's defined.\n</think>\n<tool_call>shell\n<arg_key>command</arg_key>\n<arg_value>grep -rn \"def model_to_dict\" /repo</arg_value>\n</tool_call>\n</assistant>\n",
+      "chat_template_preview": "\u3008|EOS|\u3009<system>\n\nYou are a coding agent. You have access to tools: read_file, shell, apply_patch, and exit. Use them to investigate and fix bugs in the repository. Think step by step and recover from failures by trying different approaches.\n</system>\n<user>\nFix the following bug in the django/django repository:\n\nmodel_to_dict() should return an empty dict for an empty list of fields.\n\nWhen called as model_to_dict(instance, fields=[]) the function should return an empty dict, because no fields were requested. But it returns all fields instead.\n\nThe problem is the condition:\n  if fields and f.name not in fields:\nwhich should be:\n  if fields is not None and f.name not in fields:\n\nPlease locate the relevant code and apply the fix.\n</user>\n<assistant>\n<think>\nThe issue names the function `model_to_dict` but doesn't give a file path. I know it's somewhere in the Django codebase, but I shouldn't guess \u2014 the symbol name alone is not enough to infer a reliable path. I'll use grep to find exactly where it's defined.\n</think>\n<tool_call>shell\n<arg_key>command</arg_key>\n<arg_value>grep -rn \"def model_to_dict\" /repo</arg_value>\n</tool_call>\n</assistant>\n"
+    },
+    {
+      "id": "django__django-11163:P1:assistant_0002",
+      "has_chat_template": true,
+      "active_render_source": "chat_template",
+      "manual_token_count": 372,
+      "chat_template_token_count": 375,
+      "token_count_delta": 3,
+      "chat_to_manual_token_ratio": 1.0080645161290323,
+      "manual_preview": "<system>\nYou are a coding agent. You have access to tools: read_file, shell, apply_patch, and exit. Use them to investigate and fix bugs in the repository. Think step by step and recover from failures by trying different approaches.\n</system>\n<user>\nFix the following bug in the django/django repository:\n\nmodel_to_dict() should return an empty dict for an empty list of fields.\n\nWhen called as model_to_dict(instance, fields=[]) the function should return an empty dict, because no fields were requested. But it returns all fields instead.\n\nThe problem is the condition:\n  if fields and f.name not in fields:\nwhich should be:\n  if fields is not None and f.name not in fields:\n\nPlease locate the relevant code and apply the fix.\n</user>\n<assistant>\n<think>\nThe issue names the function `model_to_dict` but doesn't give a file path. I know it's somewhere in the Django codebase, but I shouldn't guess \u2014 the symbol name alone is not enough to infer a reliable path. I'll use grep to find exactly where it's defined.\n</think>\n<tool_call>shell\n<arg_key>command</arg_key>\n<arg_value>grep -rn \"def model_to_dict\" /repo</arg_value>\n</tool_call>\n</assistant>\n<tool name=\"\">\n/repo/django/forms/models.py:88:de",
+      "active_prefix_preview": "nd exit. Use them to investigate and fix bugs in the repository. Think step by step and recover from failures by trying different approaches.\n</system>\n<user>\nFix the following bug in the django/django repository:\n\nmodel_to_dict() should return an empty dict for an empty list of fields.\n\nWhen called as model_to_dict(instance, fields=[]) the function should return an empty dict, because no fields were requested. But it returns all fields instead.\n\nThe problem is the condition:\n  if fields and f.name not in fields:\nwhich should be:\n  if fields is not None and f.name not in fields:\n\nPlease locate the relevant code and apply the fix.\n</user>\n<assistant>\n<think>\nThe issue names the function `model_to_dict` but doesn't give a file path. I know it's somewhere in the Django codebase, but I shouldn't guess \u2014 the symbol name alone is not enough to infer a reliable path. I'll use grep to find exactly where it's defined.\n</think>\n<tool_call>shell\n<arg_key>command</arg_key>\n<arg_value>grep -rn \"def model_to_dict\" /repo</arg_value>\n</tool_call>\n</assistant>\n<tool_response>\n/repo/django/forms/models.py:88:def model_to_dict(instance, fields=None, exclude=None):\n</tool_response>\n<assistant>\n<think>",
+      "active_target_preview": "\nFound it: django/forms/models.py line 88. Now I'll read the function body to see the exact condition that needs fixing.\n</think>\n<tool_call>read_file\n<arg_key>path</arg_key>\n<arg_value>/repo/django/forms/models.py</arg_value>\n</tool_call>\n</assistant>\n",
+      "chat_template_preview": "\u3008|EOS|\u3009<system>\n\nYou are a coding agent. You have access to tools: read_file, shell, apply_patch, and exit. Use them to investigate and fix bugs in the repository. Think step by step and recover from failures by trying different approaches.\n</system>\n<user>\nFix the following bug in the django/django repository:\n\nmodel_to_dict() should return an empty dict for an empty list of fields.\n\nWhen called as model_to_dict(instance, fields=[]) the function should return an empty dict, because no fields were requested. But it returns all fields instead.\n\nThe problem is the condition:\n  if fields and f.name not in fields:\nwhich should be:\n  if fields is not None and f.name not in fields:\n\nPlease locate the relevant code and apply the fix.\n</user>\n<assistant>\n<think>\nThe issue names the function `model_to_dict` but doesn't give a file path. I know it's somewhere in the Django codebase, but I shouldn't guess \u2014 the symbol name alone is not enough to infer a reliable path. I'll use grep to find exactly where it's defined.\n</think>\n<tool_call>shell\n<arg_key>command</arg_key>\n<arg_value>grep -rn \"def model_to_dict\" /repo</arg_value>\n</tool_call>\n</assistant>\n<tool_response>\n/repo/django/forms/models"
+    }
+  ]
+}

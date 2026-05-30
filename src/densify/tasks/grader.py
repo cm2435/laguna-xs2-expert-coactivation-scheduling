@@ -23,9 +23,8 @@ def export_patch(repo_path: str | Path, patch_path: str | Path) -> None:
         ["git", "-C", str(repo_path), "diff", "--binary"],
         check=True,
         capture_output=True,
-        text=True,
     )
-    Path(patch_path).write_text(result.stdout, encoding="utf-8")
+    Path(patch_path).write_bytes(result.stdout)
 
 
 def repo_is_dirty(repo_path: str | Path) -> bool:

@@ -6,6 +6,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+import torch
+
 from densify.pool_backend import BackendGeneration, LocalHFBackend
 
 
@@ -133,7 +135,7 @@ class ProbeHandler(BaseHTTPRequestHandler):
                     "choices": [
                         {
                             "index": 0,
-                            "message": {"role": "assistant", "content": generation.text},
+                            "message": self.chat_message(generation),
                             "finish_reason": "stop",
                         }
                     ],
@@ -146,6 +148,12 @@ class ProbeHandler(BaseHTTPRequestHandler):
             )
             return
         self.write_json(404, {"error": {"message": f"unknown path: {self.path}"}})
+
+    def chat_message(self, generation: BackendGeneration) -> dict[str, Any]:
+        message: dict[str, Any] = {"role": "assistant", "content": generation.text}
+        if generation.tool_calls:
+            message["tool_calls"] = generation.tool_calls
+        return message
 
     def generate_response(self, payload: dict[str, Any]) -> BackendGeneration:
         if self.backend is not None:
@@ -246,6 +254,7 @@ def main() -> None:
     parser.add_argument("--log-path", default="runs/openai_probe/requests.jsonl")
     parser.add_argument("--mode", choices=["dummy", "hf"], default="dummy")
     parser.add_argument("--model-id", default="poolside/Laguna-XS.2")
+    parser.add_argument("--tokenizer-id")
     parser.add_argument("--torch-dtype", default="bfloat16")
     parser.add_argument("--device-map", default="auto")
     parser.add_argument("--max-new-tokens", type=int, default=64)
@@ -254,13 +263,18 @@ def main() -> None:
     parser.add_argument("--top-p", type=float, default=0.95)
     parser.add_argument("--no-sample", action="store_true")
     parser.add_argument("--disable-thinking", action="store_true")
+    parser.add_argument("--disable-cudnn-sdpa", action="store_true")
     parser.add_argument("--output-dir", default="runs/pool_hf_backend")
     args = parser.parse_args()
+
+    if args.disable_cudnn_sdpa and torch.cuda.is_available():
+        torch.backends.cuda.enable_cudnn_sdp(False)
 
     ProbeHandler.log_path = Path(args.log_path)
     if args.mode == "hf":
         ProbeHandler.backend = LocalHFBackend(
             model_id=args.model_id,
+            tokenizer_id=args.tokenizer_id,
             torch_dtype=args.torch_dtype,
             device_map=args.device_map,
             trust_remote_code=True,

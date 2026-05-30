@@ -1,0 +1,27 @@
+task_id: sympy__sympy-20916
+suite: swebench_verified
+repo: sympy/sympy
+repo_id: sympy__sympy
+base_commit: 82298df6a51491bfaad0c6d1980e7e3ca808ae93
+problem_statement: "pprint unicode does not format subscripts on Greek letters\nGood:\r\
+  \n\r\n[ -t\u2080\u22C5w\u2080   -t\u2081\u22C5w\u2080   -t\u2082\u22C5w\u2080]\r\
+  \n\r\n\r\nBad:\r\n\r\n[ -t\u2080\u22C5\u03C90   -t\u2081\u22C5\u03C90   -t\u2082\
+  \u22C5\u03C90]\r\n\r\n\r\n\n"
+visible_to_model:
+  issue_statement: true
+  public_tests: false
+  hidden_tests: false
+environment:
+  template_path: envs/repo_templates/sympy__sympy/82298df6a51491bfaad0c6d1980e7e3ca808ae93/repo
+  setup_command: python -m pip install -e .
+  smoke_command: ''
+grader:
+  hidden_command: uv run python scripts/grade_task_sandbox.py --task tasks/swebench_verified/sympy__sympy-20916.yaml
+    --sandbox {sandbox}
+limits:
+  timeout_s: 1800
+  max_turns: 30
+  network: disabled
+metadata:
+  dataset: princeton-nlp/SWE-bench_Verified
+  instance_id: sympy__sympy-20916

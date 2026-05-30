@@ -1,0 +1,27 @@
+task_id: django__django-14999
+suite: swebench_verified
+repo: django/django
+repo_id: django__django
+base_commit: a754b82dac511475b6276039471ccd17cc64aeb8
+problem_statement: "RenameModel with db_table should be a noop.\nDescription\n\t\n\
+  A RenameModel operation that already has db_table defined must be a noop.\nIn Postgres,\
+  \ it drops and recreates foreign key constraints. In sqlite it recreates the table\
+  \ (as expected for a table renaming).\n"
+visible_to_model:
+  issue_statement: true
+  public_tests: false
+  hidden_tests: false
+environment:
+  template_path: envs/repo_templates/django__django/a754b82dac511475b6276039471ccd17cc64aeb8/repo
+  setup_command: python -m pip install -e .
+  smoke_command: ''
+grader:
+  hidden_command: uv run python scripts/grade_task_sandbox.py --task tasks/swebench_verified/django__django-14999.yaml
+    --sandbox {sandbox}
+limits:
+  timeout_s: 1800
+  max_turns: 30
+  network: disabled
+metadata:
+  dataset: princeton-nlp/SWE-bench_Verified
+  instance_id: django__django-14999

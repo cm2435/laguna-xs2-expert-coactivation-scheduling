@@ -1,0 +1,32 @@
+task_id: pytest-dev__pytest-5840
+suite: swebench_verified
+repo: pytest-dev/pytest
+repo_id: pytest-dev__pytest
+base_commit: 73c5b7f4b11a81e971f7d1bb18072e06a87060f4
+problem_statement: "5.1.2 ImportError while loading conftest (windows import folder\
+  \ casing issues)\n5.1.1 works fine. after upgrade to 5.1.2, the path was converted\
+  \ to lower case\r\n```\r\nInstalling collected packages: pytest\r\n  Found existing\
+  \ installation: pytest 5.1.1\r\n    Uninstalling pytest-5.1.1:\r\n      Successfully\
+  \ uninstalled pytest-5.1.1\r\nSuccessfully installed pytest-5.1.2\r\nPS C:\\Azure\\\
+  KMS\\ComponentTest\\Python> pytest --collect-only .\\PIsys -m smoke\r\nImportError\
+  \ while loading conftest 'c:\\azure\\kms\\componenttest\\python\\pisys\\conftest.py'.\r\
+  \nModuleNotFoundError: No module named 'python'\r\nPS C:\\Azure\\KMS\\ComponentTest\\\
+  Python>\r\n```\r\n\r\n\n"
+visible_to_model:
+  issue_statement: true
+  public_tests: false
+  hidden_tests: false
+environment:
+  template_path: envs/repo_templates/pytest-dev__pytest/73c5b7f4b11a81e971f7d1bb18072e06a87060f4/repo
+  setup_command: python -m pip install -e .
+  smoke_command: ''
+grader:
+  hidden_command: uv run python scripts/grade_task_sandbox.py --task tasks/swebench_verified/pytest-dev__pytest-5840.yaml
+    --sandbox {sandbox}
+limits:
+  timeout_s: 1800
+  max_turns: 30
+  network: disabled
+metadata:
+  dataset: princeton-nlp/SWE-bench_Verified
+  instance_id: pytest-dev__pytest-5840

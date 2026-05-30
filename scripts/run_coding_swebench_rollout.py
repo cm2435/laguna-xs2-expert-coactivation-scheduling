@@ -14,6 +14,7 @@ def main() -> None:
     parser.add_argument("--sandbox-root", default="sandboxes/coding_harness")
     parser.add_argument("--run-id")
     parser.add_argument("--max-turns", type=int, default=40)
+    parser.add_argument("--max-tokens", type=int)
     parser.add_argument("--temperature", type=float, default=0.0)
     args = parser.parse_args()
 
@@ -26,6 +27,7 @@ def main() -> None:
         run_id=args.run_id,
         max_turns=args.max_turns,
         temperature=args.temperature,
+        max_tokens=args.max_tokens,
     )
     print(rollout_dir)
 

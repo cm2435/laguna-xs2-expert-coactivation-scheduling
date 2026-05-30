@@ -1,0 +1,26 @@
+task_id: django__django-14373
+suite: swebench_verified
+repo: django/django
+repo_id: django__django
+base_commit: b1a4b1f0bdf05adbd3dc4dde14228e68da54c1a3
+problem_statement: "DateFormat.Y() is not zero-padded.\nDescription\n\t\nThe Y specifier\
+  \ for django.utils.dateformat.DateFormat is supposed to always return a four-digit\
+  \ year padded with zeros. This doesn't seem to be the case for year < 1000.\n"
+visible_to_model:
+  issue_statement: true
+  public_tests: false
+  hidden_tests: false
+environment:
+  template_path: envs/repo_templates/django__django/b1a4b1f0bdf05adbd3dc4dde14228e68da54c1a3/repo
+  setup_command: python -m pip install -e .
+  smoke_command: ''
+grader:
+  hidden_command: uv run python scripts/grade_task_sandbox.py --task tasks/swebench_verified/django__django-14373.yaml
+    --sandbox {sandbox}
+limits:
+  timeout_s: 1800
+  max_turns: 30
+  network: disabled
+metadata:
+  dataset: princeton-nlp/SWE-bench_Verified
+  instance_id: django__django-14373

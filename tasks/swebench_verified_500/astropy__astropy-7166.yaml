@@ -1,0 +1,29 @@
+task_id: astropy__astropy-7166
+suite: swebench_verified
+repo: astropy/astropy
+repo_id: astropy__astropy
+base_commit: 26d147868f8a891a6009a25cd6a8576d2e1bd747
+problem_statement: 'InheritDocstrings metaclass doesn''t work for properties
+
+  Inside the InheritDocstrings metaclass it uses `inspect.isfunction` which returns
+  `False` for properties.
+
+  '
+visible_to_model:
+  issue_statement: true
+  public_tests: false
+  hidden_tests: false
+environment:
+  template_path: envs/repo_templates/astropy__astropy/26d147868f8a891a6009a25cd6a8576d2e1bd747/repo
+  setup_command: python -m pip install -e .
+  smoke_command: ''
+grader:
+  hidden_command: uv run python scripts/grade_task_sandbox.py --task tasks/swebench_verified/astropy__astropy-7166.yaml
+    --sandbox {sandbox}
+limits:
+  timeout_s: 1800
+  max_turns: 30
+  network: disabled
+metadata:
+  dataset: princeton-nlp/SWE-bench_Verified
+  instance_id: astropy__astropy-7166

@@ -18,6 +18,9 @@ def run_task_rollout(
     run_id: str | None = None,
     max_turns: int = 40,
     temperature: float = 0.0,
+    max_tokens: int | None = None,
+    api_key: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> str:
     task = load_task_manifest(task_path)
     rid = run_id or make_run_id(task.task_id)
@@ -33,6 +36,9 @@ def run_task_rollout(
             task=task.problem_statement,
             max_turns=max_turns,
             temperature=temperature,
+            max_tokens=max_tokens,
+            api_key=api_key,
+            extra_headers=extra_headers,
         )
     )
     grade = grade_sandbox(task, sandbox.root)
