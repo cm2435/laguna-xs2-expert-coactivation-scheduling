@@ -1,0 +1,10 @@
+{
+  "num_logged_points": 173,
+  "first_step": 1,
+  "last_step": 1620,
+  "val_points": 24,
+  "first_val_ce": 13.85851263999939,
+  "last_val_ce": 3.917353756725788,
+  "best_val_ce": 3.337075814604759,
+  "best_val_step": 1500
+}

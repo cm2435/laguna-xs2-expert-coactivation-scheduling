@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import subprocess
 import shlex
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -47,7 +47,7 @@ class ToolExecutor:
 
     def execute(self, tool_name: str, arguments: dict[str, Any]) -> ToolResult:
         if tool_name == "shell":
-            return self.shell(str(arguments.get("command", "")))
+            return self.shell(str(arguments.get("command") or arguments.get("cmd") or ""))
         if tool_name == "read_file":
             return self.read_file(
                 str(arguments.get("path", "")),
@@ -55,7 +55,10 @@ class ToolExecutor:
                 max_lines=arguments.get("max_lines"),
             )
         if tool_name == "write_file":
-            return self.write_file(str(arguments.get("path", "")), str(arguments.get("content", "")))
+            return self.write_file(
+                str(arguments.get("path", "")),
+                str(arguments.get("content", "")),
+            )
         if tool_name == "apply_patch":
             return self.apply_patch(str(arguments.get("patch", "")))
         if tool_name == "exit":
@@ -130,10 +133,67 @@ class ToolExecutor:
 
     def apply_patch(self, patch: str) -> ToolResult:
         try:
-            changed = self.apply_simple_patch(patch)
+            if self.looks_like_unified_patch(patch):
+                changed = self.apply_unified_patch(patch)
+            else:
+                changed = self.apply_simple_patch(patch)
         except ValueError as exc:
             return ToolResult("apply_patch", False, str(exc))
         return ToolResult("apply_patch", True, "updated " + ", ".join(changed))
+
+    def looks_like_unified_patch(self, patch: str) -> bool:
+        lines = [line for line in patch.splitlines() if line.strip()]
+        if not lines:
+            return False
+        if lines[0].strip() == "*** Begin Patch":
+            lines = lines[1:]
+        return bool(lines and (lines[0].startswith("diff --git ") or lines[0].startswith("--- ")))
+
+    def apply_unified_patch(self, patch: str) -> list[str]:
+        normalized = self.strip_patch_wrapper(patch)
+        check = subprocess.run(
+            ["git", "apply", "--check", "-"],
+            cwd=self.repo,
+            input=normalized,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if check.returncode != 0:
+            raise ValueError(self.limit_output((check.stderr or check.stdout or "").strip()))
+        result = subprocess.run(
+            ["git", "apply", "-"],
+            cwd=self.repo,
+            input=normalized,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise ValueError(self.limit_output((result.stderr or result.stdout or "").strip()))
+        changed = self.changed_paths_from_unified_patch(normalized)
+        return changed or ["unified diff"]
+
+    def strip_patch_wrapper(self, patch: str) -> str:
+        lines = patch.splitlines()
+        if lines and lines[0].strip() == "*** Begin Patch":
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "*** End Patch":
+            lines = lines[:-1]
+        return "\n".join(lines).strip("\n") + "\n"
+
+    def changed_paths_from_unified_patch(self, patch: str) -> list[str]:
+        changed: list[str] = []
+        for line in patch.splitlines():
+            if not line.startswith("+++ "):
+                continue
+            path = line.removeprefix("+++ ").strip()
+            if path == "/dev/null":
+                continue
+            if path.startswith("b/"):
+                path = path[2:]
+            changed.append(path)
+        return sorted(set(changed))
 
     def apply_simple_patch(self, patch: str) -> list[str]:
         lines = patch.splitlines()

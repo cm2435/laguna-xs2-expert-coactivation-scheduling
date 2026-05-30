@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,16 +25,153 @@ def content_to_text(content: Any) -> str:
     return str(content or "")
 
 
-def normalize_messages(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
+def normalize_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     normalized = []
     for message in messages:
         role = str(message.get("role", "user"))
-        normalized.append({"role": role, "content": content_to_text(message.get("content"))})
+        clean: dict[str, Any] = {"role": role, "content": content_to_text(message.get("content"))}
+        if message.get("content") is None:
+            clean["content"] = None
+        if message.get("tool_calls"):
+            clean["tool_calls"] = normalize_tool_calls_for_template(message["tool_calls"])
+        if message.get("tool_call_id"):
+            clean["tool_call_id"] = message["tool_call_id"]
+        if message.get("name"):
+            clean["name"] = message["name"]
+        normalized.append(clean)
+    return normalized
+
+
+def normalize_tool_calls_for_template(tool_calls: Any) -> list[dict[str, Any]]:
+    normalized = []
+    if not isinstance(tool_calls, list):
+        return normalized
+    for call in tool_calls:
+        if not isinstance(call, dict):
+            continue
+        clean = dict(call)
+        function = dict(clean.get("function") or {})
+        arguments = function.get("arguments")
+        if isinstance(arguments, str):
+            try:
+                parsed = json.loads(arguments)
+            except json.JSONDecodeError:
+                parsed = {"_raw": arguments}
+            function["arguments"] = parsed if isinstance(parsed, dict) else {"value": parsed}
+        elif arguments is None:
+            function["arguments"] = {}
+        clean["function"] = function
+        normalized.append(clean)
     return normalized
 
 
 def strip_pool_unfriendly_markup(text: str) -> str:
     return text.replace("</assistant>", "").strip()
+
+
+def parse_generated_tool_calls(text: str) -> tuple[str, list[dict[str, Any]]]:
+    """Extract OpenAI-style tool calls from Laguna text generations.
+
+    The SFT data renders tool calls as assistant text followed by a JSON object:
+    {"tool_calls": [...]}. The coding harness needs those calls in the structured
+    Chat Completions field, otherwise it will never execute tools.
+    """
+    cleaned = strip_pool_unfriendly_markup(text)
+    payload = first_json_object_with_key(cleaned, "tool_calls")
+    if payload is None:
+        tagged_call = first_tagged_tool_call(cleaned)
+        if tagged_call is None:
+            return cleaned, []
+        content, call = tagged_call
+        return content, [call]
+    calls = payload.get("tool_calls")
+    if not isinstance(calls, list):
+        return cleaned, []
+    tool_calls = [normalize_tool_call(call, idx) for idx, call in enumerate(calls, start=1)]
+    tool_calls = [call for call in tool_calls if call]
+    content = cleaned.replace(json.dumps(payload, sort_keys=True), "").strip()
+    if content == cleaned:
+        content = cleaned[: cleaned.find("{")].strip() if "{" in cleaned else ""
+    return content, tool_calls
+
+
+def first_tagged_tool_call(text: str) -> tuple[str, dict[str, Any]] | None:
+    match = re.search(r"<tool_call>(.*?)</tool_call>", text, flags=re.DOTALL)
+    if match:
+        body = match.group(1)
+        content = text[: match.start()].strip()
+    else:
+        start = text.find("<tool_call>")
+        if start < 0:
+            return None
+        body = text[start + len("<tool_call>") :]
+        content = text[:start].strip()
+    if not body.strip():
+        return None
+    lines = body.splitlines()
+    tool_name = ""
+    while lines and not tool_name:
+        tool_name = lines.pop(0).strip()
+    if not tool_name:
+        return None
+    arguments: dict[str, Any] = {}
+    for arg_key, arg_value in re.findall(
+        r"<arg_key>(.*?)</arg_key>\s*<arg_value>(.*?)</arg_value>",
+        body,
+        flags=re.DOTALL,
+    ):
+        arguments[arg_key.strip()] = coerce_tagged_arg_value(arg_value.strip())
+    return content, {
+        "id": "generated_tool_1",
+        "type": "function",
+        "function": {"name": tool_name, "arguments": json.dumps(arguments)},
+    }
+
+
+def coerce_tagged_arg_value(value: str) -> Any:
+    if value in {"true", "false"}:
+        return value == "true"
+    try:
+        return int(value)
+    except ValueError:
+        return value
+
+
+def first_json_object_with_key(text: str, key: str) -> dict[str, Any] | None:
+    decoder = json.JSONDecoder()
+    for idx, char in enumerate(text):
+        if char != "{":
+            continue
+        try:
+            parsed, _ = decoder.raw_decode(text[idx:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict) and key in parsed:
+            return parsed
+    return None
+
+
+def normalize_tool_call(call: Any, idx: int) -> dict[str, Any]:
+    if not isinstance(call, dict):
+        return {}
+    function = call.get("function")
+    if not isinstance(function, dict):
+        return {}
+    name = str(function.get("name") or "")
+    arguments = function.get("arguments")
+    if isinstance(arguments, dict):
+        arguments = json.dumps(arguments)
+    elif arguments is None:
+        arguments = "{}"
+    elif not isinstance(arguments, str):
+        arguments = json.dumps(arguments)
+    if not name:
+        return {}
+    return {
+        "id": str(call.get("id") or f"tool_{idx}"),
+        "type": str(call.get("type") or "function"),
+        "function": {"name": name, "arguments": arguments},
+    }
 
 
 @dataclass(frozen=True)
@@ -42,6 +181,7 @@ class BackendGeneration:
     output_tokens: int
     latency_s: float
     call_dir: Path | None
+    tool_calls: list[dict[str, Any]] | None = None
 
 
 class LocalHFBackend:
@@ -49,6 +189,7 @@ class LocalHFBackend:
         self,
         *,
         model_id: str,
+        tokenizer_id: str | None = None,
         torch_dtype: str,
         device_map: str,
         trust_remote_code: bool,
@@ -61,6 +202,7 @@ class LocalHFBackend:
         output_dir: Path,
     ) -> None:
         self.model_id = model_id
+        self.tokenizer_id = tokenizer_id or model_id
         self.torch_dtype = torch_dtype
         self.device_map = device_map
         self.trust_remote_code = trust_remote_code
@@ -78,13 +220,15 @@ class LocalHFBackend:
     def load(self) -> None:
         if self.model is not None and self.tokenizer is not None:
             return
-        self.tokenizer = load_tokenizer(self.model_id, trust_remote_code=self.trust_remote_code)
+        self.tokenizer = load_tokenizer(self.tokenizer_id, trust_remote_code=self.trust_remote_code)
         self.model = load_teacher_model(
             self.model_id,
             torch_dtype=self.torch_dtype,
             trust_remote_code=self.trust_remote_code,
             device_map=self.device_map,
         )
+        if hasattr(self.model.config, "use_cache"):
+            self.model.config.use_cache = True
 
     @torch.inference_mode()
     def generate(self, payload: dict[str, Any]) -> BackendGeneration:
@@ -127,7 +271,7 @@ class LocalHFBackend:
         input_len = int(input_ids.shape[-1])
         generated_tokens = output_ids[0, input_len:]
         raw_text = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
-        served_text = strip_pool_unfriendly_markup(raw_text)
+        served_text, tool_calls = parse_generated_tool_calls(raw_text)
 
         call_dir = self.next_call_dir()
         write_json(call_dir / "request.json", payload)
@@ -135,6 +279,7 @@ class LocalHFBackend:
             call_dir / "metadata.json",
             {
                 "model_id": self.model_id,
+                "tokenizer_id": self.tokenizer_id,
                 "input_token_count": int(input_ids.numel()),
                 "generated_token_count": int(generated_tokens.numel()),
                 "latency_s": latency_s,
@@ -143,6 +288,7 @@ class LocalHFBackend:
         )
         (call_dir / "generated_text.txt").write_text(raw_text, encoding="utf-8")
         (call_dir / "served_text.txt").write_text(served_text, encoding="utf-8")
+        write_json(call_dir / "tool_calls.json", tool_calls)
         torch.save(input_ids.detach().cpu(), call_dir / "input_tokens.pt")
         torch.save(generated_tokens.detach().cpu(), call_dir / "generated_tokens.pt")
 
@@ -152,6 +298,7 @@ class LocalHFBackend:
             output_tokens=int(generated_tokens.numel()),
             latency_s=latency_s,
             call_dir=call_dir,
+            tool_calls=tool_calls,
         )
 
     def next_call_dir(self) -> Path:

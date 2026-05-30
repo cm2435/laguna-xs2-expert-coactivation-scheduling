@@ -17,6 +17,7 @@ def main() -> None:
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--max-turns", type=int, default=40)
+    parser.add_argument("--max-tokens", type=int)
     parser.add_argument("--temperature", type=float, default=0.0)
     args = parser.parse_args()
 
@@ -35,6 +36,7 @@ def main() -> None:
             sandbox_root=args.sandbox_root,
             max_turns=args.max_turns,
             temperature=args.temperature,
+            max_tokens=args.max_tokens,
         )
         append_jsonl(
             f"{args.output_dir}/batch_attempts.jsonl",

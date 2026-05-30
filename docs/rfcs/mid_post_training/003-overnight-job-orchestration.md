@@ -4,9 +4,14 @@
 
 ## Purpose
 
-Define bash-level orchestration for overnight jobs so rollout collection, SFT, and on-policy distillation can run without manual babysitting.
+Define orchestration for the two actual training jobs:
 
-The scripts should be thin wrappers around Python modules. Bash owns process order and logging; Python owns data validation and training logic.
+```text
+mid-training: teacher rollouts -> SFT
+post-training v1: prompt states -> online/on-policy KD
+```
+
+This RFC describes only those two jobs.
 
 ## Script 1: Rollout To SFT
 
@@ -23,7 +28,7 @@ start or verify teacher vLLM
 prepare repo templates
 run teacher rollouts
 summarize rollouts
-convert rollouts to SFT JSONL
+convert rollouts to assistant-action SFT JSONL
 train dense SFT
 run smoke eval
 ```
@@ -48,7 +53,7 @@ The script should write `artifacts.json`:
 
 ```json
 {
-  "run_id": "20260529T230000Z",
+  "run_id": "20260530T020000Z",
   "rollout_dir": "runs/coding_harness_...",
   "sandbox_dir": "sandboxes/coding_harness_...",
   "sft_jsonl": "data/sft/rollout_sft_....jsonl",
@@ -57,43 +62,41 @@ The script should write `artifacts.json`:
 }
 ```
 
-## Script 2: On-Policy Distillation
+## Script 2: Online KD
 
 Path:
 
 ```text
-scripts/nightly_on_policy_distill.sh
+scripts/nightly_online_kd.sh
 ```
 
 Responsibilities:
 
 ```text
-run student rollouts
-select correction states
-query teacher for corrections
-build correction SFT JSONL
-train dense student
-evaluate before/after
+build prompt-only state rows from rollout traces
+run dense student one-step action generation
+score generated actions with Laguna teacher
+train dense student with online/on-policy KD
+evaluate before/after on held-out tasks
 ```
 
 Log layout:
 
 ```text
-runs/nightly/on_policy_distill_<run_id>/
+runs/nightly/online_kd_<run_id>/
   command.sh
   env.txt
   logs/
-    01_student_rollouts.log
-    02_select_states.log
-    03_teacher_corrections.log
-    04_train.log
-    05_eval.log
+    01_build_prompts.log
+    02_online_kd_smoke.log
+    03_online_kd_train.log
+    04_eval.log
   artifacts.json
 ```
 
 ## Required Python Scripts
 
-For rollout-to-SFT:
+For SFT:
 
 ```text
 scripts/summarize_coding_rollouts.py
@@ -102,17 +105,13 @@ scripts/train_dense_sft.py
 scripts/eval_dense_coding_smoke.py
 ```
 
-For on-policy:
+For online KD:
 
 ```text
-scripts/run_student_rollouts.py
-scripts/select_on_policy_states.py
-scripts/query_teacher_corrections.py
-scripts/train_dense_sft.py
+scripts/build_on_policy_prompts.py
+scripts/train_dense_online_kd.py
 scripts/eval_dense_coding_smoke.py
 ```
-
-Reuse `train_dense_sft.py` for both stages.
 
 ## Failure Behavior
 
@@ -123,7 +122,7 @@ Rules:
 ```text
 never overwrite an existing run directory
 write every stage output before moving on
-if training fails, keep rollouts and SFT JSONL
+if training fails, keep rollouts / prompts / checkpoints
 if rollout generation fails, keep partial traces but mark run incomplete
 write a final status.json with success=false
 ```
@@ -133,9 +132,9 @@ write a final status.json with success=false
 ```json
 {
   "success": false,
-  "failed_stage": "train_sft",
+  "failed_stage": "online_kd_train",
   "message": "CUDA out of memory",
-  "completed_stages": ["prepare_templates", "rollouts", "build_sft"]
+  "completed_stages": ["build_prompts", "online_kd_smoke"]
 }
 ```
 
@@ -146,25 +145,25 @@ write a final status.json with success=false
 Use when VRAM is scarce.
 
 ```text
-teacher vLLM -> rollouts -> stop teacher -> HF SFT training
+teacher vLLM -> SFT rollouts -> stop teacher -> HF SFT training -> online KD with local/sequential teacher scoring
 ```
 
 ### Mode B: Two GPU Parallel
 
-Use if we have enough hardware.
+Use if available.
 
 ```text
-GPU 0: teacher vLLM
-GPU 1: student training or student serving
+GPU 0: Laguna teacher scoring server or local teacher
+GPU 1: dense student online KD training
 ```
 
 ### Mode C: Two VMs
 
-Useful for on-policy.
+Useful for teacher scoring.
 
 ```text
-VM A: teacher correction generation
-VM B: student training
+VM A: Laguna teacher scoring server
+VM B: dense student training
 ```
 
 ## Initial Defaults
@@ -172,22 +171,26 @@ VM B: student training
 Rollout-to-SFT:
 
 ```text
-limit: 20
-max_turns: 100
+limit: 80
+validation_limit: 20
+max_turns: 15
 temperature: 0.0
-seq_len: 4096
-sft_max_steps: 500
+seq_len: 8192
+sft_max_steps: 500-1000
 lr: 5e-5
 ```
 
-On-policy:
+Online KD:
 
 ```text
-limit: 20
-student_max_turns: 60
-teacher_corrections_per_task: 5
-distill_max_steps: 500
-lr: 2e-5
+prompt_rows: 200-1000, depending on rollout supply
+max_prompt_length: 4096-8192
+max_completion_tokens: 128
+batch_size: 1
+kd_max_steps: 200-1000
+lr: 1e-6 to 2e-5
+beta: 1.0
+temperature: 1.0
 ```
 
 ## Done Definition
@@ -195,9 +198,8 @@ lr: 2e-5
 This orchestration layer is ready when:
 
 ```text
-one command creates rollouts, SFT JSONL, and a checkpoint
-one command creates student rollouts, teacher corrections, and a distilled checkpoint
+one command creates rollouts, SFT JSONL, and an SFT checkpoint
+one command creates prompt rows and an online-KD checkpoint
 both scripts leave clear logs and artifact manifests
 failed runs are resumable from saved artifacts
 ```
-

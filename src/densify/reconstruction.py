@@ -43,10 +43,19 @@ def find_reconstruction_layer_ids(teacher: nn.Module, student: nn.Module) -> lis
     return layer_ids
 
 
-def freeze_for_dense_reconstruction(student: nn.Module) -> int:
+def freeze_for_dense_reconstruction(
+    student: nn.Module,
+    *,
+    train_norms: bool = False,
+    train_lm_head: bool = False,
+) -> int:
     trainable = 0
     for name, param in student.named_parameters():
         should_train = ".routed_dense." in name
+        if train_norms and "norm" in name:
+            should_train = True
+        if train_lm_head and "lm_head" in name:
+            should_train = True
         param.requires_grad_(should_train)
         if should_train:
             trainable += 1
@@ -103,39 +112,74 @@ def compute_parallel_reconstruction_loss(
     batch: dict[str, torch.Tensor],
     layer_ids: list[int] | None = None,
     cosine_weight: float = 0.05,
+    logit_kl_weight: float = 0.0,
+    structural_weight: float = 1.0,
 ) -> ReconstructionResult:
-    if layer_ids is None:
-        layer_ids = find_reconstruction_layer_ids(teacher, student)
-    if not layer_ids:
-        raise ValueError("No reconstruction layers found")
-
     teacher.eval()
-    teacher_inputs, teacher_outputs = capture_teacher_mlp_io(teacher, batch, layer_ids)
-    student_layers = _get_layers(student)
     attention_mask = batch.get("attention_mask")
+    model_batch = {
+        key: value
+        for key, value in batch.items()
+        if key in {"input_ids", "attention_mask", "position_ids"}
+    }
     layer_losses: list[torch.Tensor] = []
     metrics: dict[int, dict[str, float | int]] = {}
 
-    for layer_id in layer_ids:
-        student_mlp = getattr(student_layers[layer_id], "mlp")
-        x = teacher_inputs[layer_id]
-        target = teacher_outputs[layer_id]
-        pred = student_mlp(x)
-        target = target.to(device=pred.device, dtype=pred.dtype)
+    structural_loss: torch.Tensor | None = None
+    metric_dtype = torch.float32
+    if structural_weight:
+        if layer_ids is None:
+            layer_ids = find_reconstruction_layer_ids(teacher, student)
+        if not layer_ids:
+            raise ValueError("No reconstruction layers found")
 
-        mse_per_token = (pred - target).pow(2).mean(dim=-1)
-        mse, token_count = _masked_mean(mse_per_token, attention_mask)
-        loss = mse
-        cosine_value = torch.zeros((), device=pred.device, dtype=pred.dtype)
-        if cosine_weight:
-            cosine_per_token = 1 - F.cosine_similarity(pred.float(), target.float(), dim=-1).to(pred.dtype)
-            cosine_value, _ = _masked_mean(cosine_per_token, attention_mask)
-            loss = loss + cosine_weight * cosine_value
-        layer_losses.append(loss)
-        metrics[layer_id] = {
-            "mse": float(mse.detach().cpu()),
-            "cosine_loss": float(cosine_value.detach().cpu()),
-            "token_count": token_count,
-        }
+        teacher_inputs, teacher_outputs = capture_teacher_mlp_io(teacher, model_batch, layer_ids)
+        student_layers = _get_layers(student)
 
-    return ReconstructionResult(loss=torch.stack(layer_losses).mean(), per_layer=metrics)
+        for layer_id in layer_ids:
+            student_mlp = getattr(student_layers[layer_id], "mlp")
+            x = teacher_inputs[layer_id]
+            target = teacher_outputs[layer_id]
+            pred = student_mlp(x)
+            target = target.to(device=pred.device, dtype=pred.dtype)
+            metric_dtype = pred.dtype
+
+            mse_per_token = (pred - target).pow(2).mean(dim=-1)
+            mse, token_count = _masked_mean(mse_per_token, attention_mask)
+            loss = mse
+            cosine_value = torch.zeros((), device=pred.device, dtype=pred.dtype)
+            if cosine_weight:
+                cosine_per_token = 1 - F.cosine_similarity(pred.float(), target.float(), dim=-1).to(pred.dtype)
+                cosine_value, _ = _masked_mean(cosine_per_token, attention_mask)
+                loss = loss + cosine_weight * cosine_value
+            layer_losses.append(loss)
+            metrics[layer_id] = {
+                "mse": float(mse.detach().cpu()),
+                "cosine_loss": float(cosine_value.detach().cpu()),
+                "token_count": token_count,
+            }
+
+        structural_loss = torch.stack(layer_losses).mean() * structural_weight
+    if logit_kl_weight:
+        if attention_mask is None:
+            raise ValueError("logit KL requires attention_mask")
+        kl_mask = batch.get("kl_attention_mask", attention_mask)
+        with torch.no_grad():
+            teacher_logits = teacher(**model_batch).logits.detach()
+        student_logits = student(**model_batch).logits
+        teacher_probs = F.softmax(teacher_logits.float(), dim=-1)
+        student_log_probs = F.log_softmax(student_logits.float(), dim=-1)
+        kl_per_token = F.kl_div(student_log_probs, teacher_probs, reduction="none").sum(dim=-1)
+        logit_kl, token_count = _masked_mean(kl_per_token.to(metric_dtype), kl_mask)
+        metrics[-1] = {"logit_kl": float(logit_kl.detach().cpu()), "token_count": token_count}
+        total_loss = logit_kl_weight * logit_kl
+        if structural_loss is not None:
+            total_loss = structural_loss + total_loss
+        return ReconstructionResult(
+            loss=total_loss,
+            per_layer=metrics,
+        )
+
+    if structural_loss is None:
+        raise ValueError("At least one of structural_weight or logit_kl_weight must be non-zero")
+    return ReconstructionResult(loss=structural_loss, per_layer=metrics)

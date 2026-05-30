@@ -1,225 +1,255 @@
-# RFC 002: On-Policy Distillation Pipeline
+# RFC 002: Online On-Policy KD Pipeline
 
 **Status:** Draft.
 
 ## Purpose
 
-Train the dense student on its own action distribution using the true Laguna MoE model as teacher.
+Define the post-training stage after SFT: one-step online/on-policy knowledge distillation from the true Laguna MoE teacher into the dense student.
 
-This is the post-training stage after reconstruction and rollout-SFT:
-
-```text
-student acts
-teacher corrects / scores / demonstrates
-student trains on teacher feedback for states the student actually visits
-```
-
-This matters because sparse-to-dense errors compound. Offline SFT only teaches the student the teacher trajectory distribution; on-policy distillation teaches recovery from the dense model's own mistakes.
-
-## Minimum Viable Version
-
-Use teacher demonstrations on student-reached states.
-
-For each task:
+The key property is:
 
 ```text
-1. run student in the coding harness for N turns
-2. at selected states, ask teacher for the next assistant/tool action
-3. save (student context, teacher next action)
-4. SFT student on those teacher actions
+student generates the action being trained on
+teacher scores that exact student-generated action
+student updates against the teacher distribution on those generated tokens
 ```
 
-This is not full RL. It is on-policy DAgger-style imitation, which is much easier to land overnight.
-
-## Optional KL Version
-
-If logits are available cheaply:
+This follows the TRL GKD / DistillationTrainer control flow:
 
 ```text
-student context -> teacher logits
-student context -> student logits
-loss = KL(teacher || student) on target assistant tokens
+prompt/state x
+student samples y_student ~ p_student(. | x)
+teacher scores p_teacher(. | x, y_student_<t)
+student optimizes KL/JSD on y_student tokens
 ```
 
-Likely implementation choices:
+This is not RL: no scalar reward model, no advantage estimates, no PPO/GRPO loop.
 
-```text
-HF teacher logits: expensive, simple, exact
-vLLM top-logprobs: cheaper, approximate, only top-k
-teacher text only: easiest, no KL
-```
+## Inputs
 
-Recommendation:
-
-```text
-start with teacher text actions
-add KL only after the data loop works
-```
-
-## Data Artifacts
-
-Student rollouts:
-
-```text
-data/on_policy/<run_id>/student_rollouts/
-```
-
-Teacher corrections:
-
-```text
-data/on_policy/<run_id>/teacher_corrections.jsonl
-```
-
-Rows:
+Use saved rollout states as prompts. Each row should contain context only, with no final assistant target:
 
 ```json
 {
-  "id": "sympy__sympy-11618:student_turn_0012:teacher",
-  "task_id": "sympy__sympy-11618",
-  "student_checkpoint": "cm2435/laguna-xs2-dense-k8-sft-preview",
-  "context_messages": [...],
-  "student_action": {...},
-  "teacher_action": {...},
-  "selection_reason": "after_failed_tool_or_before_edit",
-  "quality": "teacher_correction"
+  "id": "django__django-10097:state_0004",
+  "task_id": "django__django-10097",
+  "source_rollout": "runs/coding_harness_...",
+  "messages": [
+    {"role": "system", "content": "..."},
+    {"role": "user", "content": "..."},
+    {"role": "assistant", "content": "", "tool_calls": [...]},
+    {"role": "tool", "content": "..."}
+  ],
+  "metadata": {
+    "state_reason": "after_first_observation",
+    "turn": 4
+  }
 }
 ```
 
-## State Selection
+The prompt builder may draw states from teacher rollouts or from student rollouts. For the first v1 implementation, use saved teacher-rollout states as prompts but generate the next action with the dense student during training. This preserves the on-policy action distribution without requiring a full interactive harness inside the trainer.
 
-Do not ask the teacher at every turn in the first version. It is too expensive.
+## Boundary
 
-Select states where teacher signal is most valuable:
-
-```text
-first tool action
-after failed shell command
-before first edit
-after first edit before verification
-when student repeats a similar command
-final turn if no exit
-```
-
-Budget:
+Avoid these patterns in v1:
 
 ```text
-3-8 teacher corrections per task
-20 tasks -> 60-160 teacher calls
+teacher rollout action -> teacher scores teacher action -> student trains on that action
+teacher regenerates its own answer from the context
+student trains only on teacher text corrections
 ```
 
-## Training
+Those are not the v1 post-training method.
 
-Use the same SFT trainer as RFC 001, with a different dataset:
+## v1 Training Loop
 
-```bash
-python scripts/train_dense_sft.py \
-  --model cm2435/laguna-xs2-dense-k8-sft-preview \
-  --dataset data/on_policy/<run_id>/teacher_corrections.jsonl \
-  --output-dir runs/distill/<run_id> \
-  --max-steps 500 \
-  --lr 2e-5
-```
-
-Freeze policy:
+For each training batch:
 
 ```text
-start with dense routed FFNs + norms
-consider lm_head if tool-call syntax is poor
-keep attention frozen
+1. collate prompt-only message rows
+2. tokenize prompts with an assistant generation prompt
+3. dense student generates one assistant action
+4. build input_ids = prompt_tokens + student_generated_tokens
+5. labels = -100 on prompt tokens, generated token ids on student action tokens
+6. run dense student forward on input_ids
+7. run Laguna teacher scoring on the same input_ids
+8. compute KL/JSD on generated action tokens only
+9. optimizer step on the dense student
 ```
 
-## Overnight Command Shape
+This is one-step on-policy KD. The student action is on-policy; the environment is not stepped inside the trainer.
 
-Proposed script:
+## Teacher Scoring
+
+Preferred scoring path:
 
 ```text
-scripts/nightly_on_policy_distill.sh
+HF/PyTorch teacher forward pass if teacher + student fit sequentially or with CPU/offload
 ```
 
-Command:
-
-```bash
-bash scripts/nightly_on_policy_distill.sh \
-  --registry tasks/registry_balanced_100.jsonl \
-  --limit 20 \
-  --max-turns 60 \
-  --student-model cm2435/laguna-xs2-dense-k8-sft-preview \
-  --teacher-api-url http://127.0.0.1:8791/v1 \
-  --student-api-url http://127.0.0.1:8793/v1 \
-  --run-id $(date -u +%Y%m%dT%H%M%SZ)
-```
-
-Stages:
+Fallback scoring path:
 
 ```text
-1. ensure teacher endpoint is reachable
-2. ensure student endpoint is reachable
-3. run student rollouts
-4. select correction states
-5. query teacher on correction states
-6. build teacher-correction SFT JSONL
-7. train student
-8. evaluate before/after on held-out tasks
+teacher vLLM server endpoint that scores existing token sequences
+```
+
+The server endpoint must score supplied token sequences. It must not use chat completion replay. The correct API shape mirrors TRL's `get_sequence_logprobs`:
+
+```json
+{
+  "sequences": [[... prompt + student_completion token ids ...]],
+  "prompt_lengths": [1234],
+  "top_logprobs": 1,
+  "temperature": 1.0
+}
+```
+
+Required response fields:
+
+```text
+actual_logprobs: teacher log p(actual generated token) per completion position
+topk_logprobs: teacher top-k logprobs per completion position
+topk_token_ids: token ids for teacher top-k entries
+```
+
+For the first implementation, local HF scoring is simpler to validate. Server scoring is useful only if VRAM makes local teacher scoring impossible.
+
+## Loss
+
+Start with TRL-style generalized JSD or reverse-KL over generated tokens:
+
+```text
+student_logits = student(prompt + student_completion)
+teacher_logits = teacher(prompt + student_completion)
+labels mask = generated completion positions only
+loss = generalized_jsd(student_logits, teacher_logits, labels, beta)
+```
+
+Initial defaults:
+
+```text
+beta: 1.0       # reverse-KL style, matching common on-policy setting
+temperature: 1.0
+max_completion_tokens: 128
+batch_size: 1
+learning_rate: 1e-6 to 2e-5 depending on stability
+```
+
+If full-vocabulary teacher logits are too expensive, use sparse top-1 or top-k support following TRL's `DistillationTrainer`:
+
+```text
+forward KL: teacher top-k support
+reverse KL: actual sampled token support, optionally teacher top-1
+JSD: union of selected supports
+```
+
+## Scripts
+
+Create:
+
+```text
+scripts/build_on_policy_prompts.py
+scripts/train_dense_online_kd.py
+scripts/nightly_online_kd.sh
+```
+
+`build_on_policy_prompts.py`:
+
+```text
+input: runs/coding_harness_<run_id>/
+output: data/on_policy_prompts/<run_id>.jsonl
+behavior: emit prompt-only states ending before an assistant action
+```
+
+`train_dense_online_kd.py`:
+
+```text
+input: prompt-only JSONL
+student: dense SFT checkpoint
+teacher: Laguna XS.2 local HF model or scoring server
+output: runs/online_kd/<run_id>/checkpoint-final
+```
+
+`nightly_online_kd.sh`:
+
+```text
+1. validate prompt dataset
+2. run online KD smoke for 1-5 batches
+3. run online KD training
+4. run held-out coding smoke eval
 ```
 
 ## Metrics
 
-Minimum:
+Minimum training metrics:
 
 ```text
-student self-exit rate before/after
-bounded patch rate before/after
-blocked-command rate before/after
-turns to first edit before/after
-tool-call JSON validity before/after
+loss
+jsd_or_kl_loss
+completion_tokens_per_step
+student_completion_mean_length
+student_completion_max_length
+truncated_completion_fraction
+peak_cuda_memory_gb
+tokens_per_second
 ```
 
-Better:
+Minimum behavioral metrics:
 
 ```text
-teacher/student action agreement
-teacher correction acceptance rate by state type
-small held-out SWE-bench-lite pass/fail
+tool-call JSON validity
+empty-action rate
+exit-only rate
+blocked-command rate in held-out harness eval
+bounded patch rate in held-out harness eval
+```
+
+Debug artifacts:
+
+```text
+sample prompt/completion pairs every N steps
+raw generated token ids for failed examples
+teacher/student top-token disagreement examples
 ```
 
 ## Risks
 
-### Serving Two Large Models
+### Student Generates Junk
 
-Teacher MoE plus dense student may not fit simultaneously.
-
-Fallback:
-
-```text
-run student rollouts first
-stop student server
-start teacher server
-generate corrections offline
-stop teacher
-train student in HF/PyTorch
-```
-
-### Bad Student States
-
-If the student context becomes nonsense, teacher corrections may be low value.
+If the dense student is too weak after SFT, generated actions may be invalid and teacher feedback may be low-value.
 
 Mitigation:
 
 ```text
-stop student rollouts after repeated invalid tool calls
-sample early states more heavily
-mix offline teacher SFT data with on-policy corrections
+start with short prompt states
+cap max_completion_tokens
+log completions every few steps
+filter empty completions from loss only if they dominate
+fall back to more SFT before online KD
 ```
 
-### Tool Format Drift
+### Teacher And Student Do Not Fit Together
 
-Student may produce invalid tool calls.
+Laguna teacher plus dense student may exceed VRAM.
 
 Mitigation:
 
 ```text
-include tool-schema formatting examples in SFT
-mask loss to assistant/tool-call JSON
-evaluate JSON validity separately from task success
+sequential local scoring with teacher loaded only for scoring windows
+teacher scoring server on a second GPU/VM
+smaller max_prompt_length and max_completion_tokens
+gradient checkpointing on student
 ```
 
+### Tool Action Boundaries Are Ambiguous
+
+The trainer must know where the generated assistant action ends.
+
+Mitigation:
+
+```text
+use EOS / assistant-turn stop tokens from Laguna tokenizer
+set max_completion_tokens conservatively
+log truncated_completion_fraction
+prefer one assistant action per prompt, not multi-turn generation
+```

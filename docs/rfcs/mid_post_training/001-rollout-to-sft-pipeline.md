@@ -17,6 +17,8 @@ stop with an exit tool
 avoid package installs and branch switching
 ```
 
+This RFC is SFT only. Post-training online/on-policy KD is owned by RFC 002.
+
 ## Inputs
 
 Teacher rollouts from the custom coding harness:
@@ -36,15 +38,10 @@ sandboxes/coding_harness_*/{run_id}/
   grade_result.json
 ```
 
-Recommended source run:
+Recommended source sequence:
 
 ```text
 runs/coding_harness_balanced_100t_clean_pilot5_rerun
-```
-
-then:
-
-```text
 runs/coding_harness_balanced_100t_clean_20
 runs/coding_harness_balanced_100t_clean_100
 ```
@@ -57,41 +54,44 @@ Write one JSONL row per assistant action:
 data/sft/rollout_sft_<source_run_id>.jsonl
 ```
 
-Each row should look like:
+Each row must end with an assistant message. Tool observations may appear in the context, but must never be the target:
 
 ```json
 {
-  "id": "django__django-10097:turn_0027",
+  "id": "django__django-10097:assistant_0027",
   "task_id": "django__django-10097",
   "source_rollout": "runs/coding_harness_balanced_100t_clean_20/...",
   "messages": [
     {"role": "system", "content": "..."},
     {"role": "user", "content": "Repository root: ...\n\nTask:\n..."},
+    {"role": "assistant", "content": "", "tool_calls": [...]},
+    {"role": "tool", "content": "..."},
     {"role": "assistant", "content": "", "tool_calls": [...]}
   ],
-  "target": {
-    "role": "assistant",
-    "content": "",
-    "tool_calls": [...]
-  },
   "quality": "silver",
   "weight": 1.0,
   "metadata": {
     "success": true,
     "turns": 66,
     "patch_bytes": 1412,
-    "first_edit_turn": 27
+    "assistant_index": 27,
+    "target_role": "assistant"
   }
 }
 ```
 
-For the first implementation, we can also emit a simpler messages-only row:
+For a rollout:
 
-```json
-{"messages": [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]}
+```text
+system, user, assistant, tool, assistant, tool
 ```
 
-But tool-call rows should be preserved because tool format recovery is the main point.
+emit:
+
+```text
+row 1: system, user, assistant
+row 2: system, user, assistant, tool, assistant
+```
 
 ## Filtering
 
@@ -123,13 +123,36 @@ Manual review can promote/demote.
 
 Train on assistant outputs only.
 
-For each turn:
+For each row:
 
 ```text
-context = system + user + previous assistant/tool messages
-target = current assistant message, including tool call JSON
+context = all messages before final assistant
+target = final assistant message, including tool call JSON
 loss mask = target assistant tokens only
 ```
+
+Tokenization must use the Laguna tokenizer's chat template as the source of truth:
+
+```python
+tokenizer.apply_chat_template(
+    messages,
+    add_generation_prompt=...,
+    tokenize=False,
+    enable_thinking=...,
+)
+```
+
+Do not hand-write Laguna tags for training unless the tokenizer has no chat
+template. The manual renderer is only a fallback/debug comparison. After
+rendering with `apply_chat_template(..., tokenize=False)`, tokenize with
+`add_special_tokens=False`; the chat template has already placed the control
+tokens.
+
+For rollout SFT rows that do not contain real thinking traces, run with
+`--disable-thinking`. With Laguna's template, `enable_thinking=True` makes the
+prompt end at `<think>` and the trainable target begins with `</think>`. That is
+valid if we intentionally want to teach "close thinking immediately", but it is
+not the cleanest behavior-cloning setup for no-thinking gold rollouts.
 
 Do not compute loss on:
 
@@ -145,7 +168,7 @@ This matters because observations can be huge and deterministic; training on the
 
 ## SFT Trainer
 
-The SFT trainer should be separate from rollout collection.
+The trainer should be separate from rollout collection.
 
 Proposed script:
 
@@ -156,12 +179,14 @@ scripts/train_dense_sft.py
 Inputs:
 
 ```bash
---model cm2435/laguna-xs2-dense-k8-reconstruction
---dataset data/sft/rollout_sft_<run_id>.jsonl
---output-dir runs/sft/<run_id>
---max-steps 1000
---seq-len 4096
---lr 5e-5
+python scripts/train_dense_sft.py \
+  --model cm2435/laguna-xs2-dense-k8-reconstruction \
+  --dataset data/sft/rollout_sft_<run_id>.jsonl \
+  --output-dir runs/sft/<run_id> \
+  --max-steps 1000 \
+  --seq-len 8192 \
+  --lr 5e-5 \
+  --disable-thinking
 ```
 
 Freeze policy for first run:
@@ -188,9 +213,10 @@ The first full pipeline should be:
 
 ```bash
 bash scripts/nightly_rollout_to_sft.sh \
-  --registry tasks/registry_balanced_100.jsonl \
-  --limit 20 \
-  --max-turns 100 \
+  --registry tasks/registry_balanced_100_train80.jsonl \
+  --validation-registry tasks/registry_balanced_100_val20.jsonl \
+  --limit 80 \
+  --max-turns 15 \
   --teacher-api-url http://127.0.0.1:8791/v1 \
   --student-model cm2435/laguna-xs2-dense-k8-reconstruction \
   --run-id $(date -u +%Y%m%dT%H%M%SZ)
@@ -203,7 +229,7 @@ Stages inside the script:
 2. prepare repo templates for selected tasks
 3. run teacher rollouts
 4. summarize and filter rollouts
-5. build SFT JSONL
+5. build assistant-action SFT JSONL
 6. run dense SFT
 7. run tiny held-out harness eval if time remains
 ```
@@ -213,10 +239,9 @@ Stages inside the script:
 A first useful run produces:
 
 ```text
-20 teacher rollouts
+80 teacher rollouts
 >= 5 bounded non-empty patches
 SFT JSONL with assistant/tool-call targets
 one dense SFT checkpoint
-before/after qualitative comparison on 5 prompts
+before/after qualitative comparison on 20 held-out prompts/tasks
 ```
-
