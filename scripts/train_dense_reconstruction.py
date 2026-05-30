@@ -27,6 +27,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--teacher-model", default="poolside/Laguna-XS.2")
     parser.add_argument("--student-model", default="cm2435-new/laguna-xs2-dense-k8-copied-shell")
     parser.add_argument("--dataset", default="nvidia/OpenCodeInstruct")
+    parser.add_argument("--datasets",
+                        help="Mixture: comma-separated 'name:weight' (overrides --dataset). "
+                             "e.g. GPUMODE/KernelBook:0.35,nvidia/OpenCodeInstruct:0.2")
     parser.add_argument("--dataset-config")
     parser.add_argument("--split", default="train")
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -108,6 +111,22 @@ def parse_layer_ids(value: str | None) -> list[int] | None:
     return [int(item.strip()) for item in value.split(",") if item.strip()]
 
 
+def mixed_rows(specs, split, streaming):
+    """Probabilistically interleave several streaming datasets by weight."""
+    import random
+    rng = random.Random(0)
+    iters = [iter(load_dataset(n, split=split, streaming=streaming)) for n, _ in specs]
+    weights = [w for _, w in specs]
+    alive = [True] * len(iters)
+    while any(alive):
+        idxs = [i for i in range(len(iters)) if alive[i]]
+        i = rng.choices(idxs, weights=[weights[j] for j in idxs], k=1)[0]
+        try:
+            yield next(iters[i])
+        except StopIteration:
+            alive[i] = False
+
+
 def main() -> None:
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -150,13 +169,16 @@ def main() -> None:
                               scale_parameter=False, relative_step=False, warmup_init=False)
     else:
         optimizer = AdamW(trainable_params, lr=args.learning_rate)
-    dataset = load_dataset(
-        args.dataset,
-        args.dataset_config,
-        split=args.split,
-        streaming=args.streaming,
-    )
-    rows: Iterable[dict[str, Any]] = dataset
+    if args.datasets:
+        specs = []
+        for item in args.datasets.split(","):
+            name, _, w = item.strip().partition(":")
+            specs.append((name.strip(), float(w) if w else 1.0))
+        rows: Iterable[dict[str, Any]] = mixed_rows(specs, args.split, args.streaming)
+        dataset_desc = args.datasets
+    else:
+        rows = load_dataset(args.dataset, args.dataset_config, split=args.split, streaming=args.streaming)
+        dataset_desc = args.dataset
     if args.max_examples:
         rows = islice(rows, args.max_examples)
     batches = iter_token_batches(rows, tokenizer, args.seq_len, args.batch_size, args.device)
@@ -164,7 +186,7 @@ def main() -> None:
     config = {
         "teacher_model": args.teacher_model,
         "student_model": args.student_model,
-        "dataset": args.dataset,
+        "dataset": dataset_desc,
         "dataset_config": args.dataset_config,
         "split": args.split,
         "seq_len": args.seq_len,

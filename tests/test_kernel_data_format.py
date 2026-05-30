@@ -38,3 +38,10 @@ def test_full_messages_json_string_key():
     msgs = json.dumps([{"role": "system", "content": "you are a kernel expert"}])
     out = format_sft_row({"full_messages": msgs})
     assert "you are a kernel expert" in out
+
+
+def test_sakana_pytorch_to_cuda_pair():
+    row = {"PyTorch_Code_Module": "import torch\nclass M(torch.nn.Module): ...",
+           "CUDA_Code": "#include <cuda_runtime.h>\n__global__ void k(){}"}
+    out = format_sft_row(row)
+    assert "CUDA kernel" in out and "__global__" in out

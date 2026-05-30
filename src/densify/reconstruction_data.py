@@ -39,7 +39,9 @@ def format_sft_row(row: dict[str, Any]) -> str:
         if parts:
             return "\n".join(parts)
 
-    instruction = _as_text(row.get("instruction") or row.get("prompt") or row.get("question"))
+    instruction = _as_text(
+        row.get("instruction") or row.get("prompt") or row.get("question") or row.get("query")
+    )
     extra_input = _as_text(row.get("input"))
     output = _as_text(row.get("output") or row.get("completion") or row.get("response") or row.get("answer"))
     if extra_input:
@@ -47,16 +49,26 @@ def format_sft_row(row: dict[str, Any]) -> str:
     if instruction and output:
         return f"<user>\n{instruction}\n</user>\n<assistant>\n{output}\n</assistant>"
 
-    # Kernel datasets (GPUMODE/KernelBook etc.): PyTorch module -> Triton kernel pair.
-    py = _as_text(row.get("python_code") or row.get("pytorch_code"))
+    # Kernel datasets: PyTorch module -> Triton/CUDA kernel pair.
+    # (GPUMODE/KernelBook -> Triton; SakanaAI/AI-CUDA-Engineer-Archive -> CUDA C++)
+    py = _as_text(
+        row.get("python_code") or row.get("pytorch_code")
+        or row.get("PyTorch_Code_Module") or row.get("PyTorch_Code_Functional")
+    )
     triton = _as_text(row.get("triton_code") or row.get("final_triton_code"))
+    cuda = _as_text(row.get("CUDA_Code") or row.get("cuda_code"))
     if py and triton:
         return (
             "<user>\nConvert this PyTorch module into an optimized Triton kernel:\n"
             f"{py}\n</user>\n<assistant>\n{triton}\n</assistant>"
         )
+    if py and cuda:
+        return (
+            "<user>\nConvert this PyTorch module into an optimized CUDA kernel:\n"
+            f"{py}\n</user>\n<assistant>\n{cuda}\n</assistant>"
+        )
 
-    text = _as_text(row.get("text") or row.get("content"))
+    text = _as_text(row.get("text") or row.get("content") or row.get("kernel") or row.get("code"))
     if text:
         return text
     raise ValueError(f"Could not format SFT row with keys: {sorted(row)}")
