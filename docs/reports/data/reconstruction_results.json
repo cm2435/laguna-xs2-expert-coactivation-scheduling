@@ -1,0 +1,112 @@
+{
+  "teacher": "poolside/Laguna-XS.2 (33.4B/3.0B-active MoE, 256 experts top-8 + shared, 39 sparse layers)",
+  "student": "laguna-xs2-dense-k8 (~3.0B all-active; routed MoE -> dense SwiGLU FFN, K=8 \u00d7512=4096)",
+  "objective": "teacher-forced, all-39-layer-parallel feature reconstruction; loss = mean_l(MSE[/energy] + 0.05*(1-cos)), attention-masked; only *.routed_dense.* trainable; Adafactor lr 2e-4",
+  "hardware": "1x H100 80GB",
+  "runs": [
+    {
+      "run": "V1 opencode",
+      "data": "nvidia/OpenCodeInstruct",
+      "logs": 210,
+      "steps": [
+        1,
+        2090
+      ],
+      "minutes": 35.6,
+      "loss": [
+        0.6914,
+        0.332
+      ],
+      "deep_L28_39_mse": [
+        0.2324,
+        0.0248
+      ],
+      "mid_L11_27_mse": [
+        0.0087,
+        0.0036
+      ],
+      "shallow_L1_10_mse": [
+        0.00044,
+        0.0002
+      ],
+      "per_layer_mse_start_end": {
+        "L1": [
+          0.000254,
+          8.2e-05
+        ],
+        "L10": [
+          0.001106,
+          0.000406
+        ],
+        "L20": [
+          0.007812,
+          0.003143
+        ],
+        "L30": [
+          1.265625,
+          0.026001
+        ],
+        "L39": [
+          0.265625,
+          0.054199
+        ]
+      },
+      "mean_cosine_loss": [
+        0.435,
+        0.245
+      ]
+    },
+    {
+      "run": "V2 kernelmix",
+      "data": "KernelBook+CUDA+OpenCode weighted interleave",
+      "logs": 201,
+      "steps": [
+        1,
+        2000
+      ],
+      "minutes": 35.3,
+      "loss": [
+        0.6719,
+        0.1631
+      ],
+      "deep_L28_39_mse": [
+        0.2038,
+        0.018
+      ],
+      "mid_L11_27_mse": [
+        0.0085,
+        0.0021
+      ],
+      "shallow_L1_10_mse": [
+        0.00036,
+        5e-05
+      ],
+      "per_layer_mse_start_end": {
+        "L1": [
+          0.000179,
+          1.2e-05
+        ],
+        "L10": [
+          0.001022,
+          0.000133
+        ],
+        "L20": [
+          0.007172,
+          0.00206
+        ],
+        "L30": [
+          1.09375,
+          0.012085
+        ],
+        "L39": [
+          0.28125,
+          0.042725
+        ]
+      },
+      "mean_cosine_loss": [
+        0.419,
+        0.124
+      ]
+    }
+  ]
+}

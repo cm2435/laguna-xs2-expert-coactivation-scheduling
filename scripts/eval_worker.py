@@ -27,7 +27,7 @@ def main():
     from densify.kernel_reward import evaluate_kernel, evaluate_triton
     ref = eval(REFS[job["op"]], {"torch": torch})
     if job["dsl"] == "CUDA":
-        r = evaluate_kernel(job["code"], ref, name=job["op"], timeout=75)
+        r = evaluate_kernel(job["code"], ref, name=job.get("name", job["op"]), timeout=75)
     else:
         r = evaluate_triton(job["code"], ref, timeout=60)
     json.dump(r, open(a.out, "w"))

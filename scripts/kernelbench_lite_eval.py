@@ -11,20 +11,42 @@ from torch.utils.cpp_extension import load_inline
 SYS = ("You are an expert GPU kernel engineer. Convert PyTorch modules into correct, "
        "optimized CUDA kernels. Define `torch::Tensor forward(torch::Tensor input)`.")
 
-# (name, pytorch source string, reference fn) — unary elementwise ops
+# (name, pytorch source string, reference fn) — 20 unary elementwise ops
+def _m(body):
+    return f"class Model(nn.Module):\n    def forward(self, x):\n        return {body}"
+
+
 TASKS = [
-    ("ReLU", "class Model(nn.Module):\n    def forward(self, x):\n        return torch.relu(x)", torch.relu),
-    ("Square", "class Model(nn.Module):\n    def forward(self, x):\n        return x * x", lambda x: x * x),
+    ("ReLU", _m("torch.relu(x)"), torch.relu),
+    ("Square", _m("x * x"), lambda x: x * x),
+    ("Sigmoid", _m("torch.sigmoid(x)"), torch.sigmoid),
+    ("Tanh", _m("torch.tanh(x)"), torch.tanh),
+    ("GeLU", _m("torch.nn.functional.gelu(x)"), lambda x: torch.nn.functional.gelu(x)),
+    ("Abs", _m("torch.abs(x)"), torch.abs),
+    ("Negate", _m("-x"), lambda x: -x),
+    ("Exp", _m("torch.exp(x)"), torch.exp),
+    ("Softplus", _m("torch.nn.functional.softplus(x)"), torch.nn.functional.softplus),
+    ("ELU", _m("torch.nn.functional.elu(x)"), torch.nn.functional.elu),
+    ("LeakyReLU", _m("torch.nn.functional.leaky_relu(x, 0.01)"), lambda x: torch.nn.functional.leaky_relu(x, 0.01)),
+    ("SiLU", _m("torch.nn.functional.silu(x)"), torch.nn.functional.silu),
+    ("Sign", _m("torch.sign(x)"), torch.sign),
+    ("Floor", _m("torch.floor(x)"), torch.floor),
+    ("Ceil", _m("torch.ceil(x)"), torch.ceil),
+    ("Round", _m("torch.round(x)"), torch.round),
+    ("Cos", _m("torch.cos(x)"), torch.cos),
+    ("Sin", _m("torch.sin(x)"), torch.sin),
+    ("Mish", _m("torch.nn.functional.mish(x)"), torch.nn.functional.mish),
+    ("HardSwish", _m("torch.nn.functional.hardswish(x)"), torch.nn.functional.hardswish),
 ]
 
 
-def gen(model, tok, py):
+def gen(model, tok, py, max_new=1024):
     user = f"Convert this PyTorch module into an optimized CUDA kernel:\n\n```python\nimport torch\nimport torch.nn as nn\n{py}\n```"
     s = tok.apply_chat_template([{"role": "system", "content": SYS}, {"role": "user", "content": user}],
                                 add_generation_prompt=True, tokenize=False, enable_thinking=False)
     ids = tok(s, add_special_tokens=False, return_tensors="pt").input_ids.to(model.device)
     with torch.inference_mode():
-        out = model.generate(ids, max_new_tokens=512, do_sample=True, temperature=0.6, top_k=20, pad_token_id=9)
+        out = model.generate(ids, max_new_tokens=max_new, do_sample=True, temperature=0.6, top_k=20, pad_token_id=9)
     return tok.decode(out[0][ids.shape[-1]:], skip_special_tokens=True)
 
 
@@ -33,38 +55,16 @@ def extract_code(text):
     return (m.group(1) if m else text).strip()
 
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "src"))
+from densify.kernel_reward import evaluate_kernel  # noqa: E402
+
+
 def evaluate(name, code, ref_fn):
-    res = {"task": name, "compiled": False, "correct": False, "speedup": None}
-    try:
-        has_pybind = "PYBIND11_MODULE" in code
-        kw = dict(name=f"kb_{name.lower()}_{int(time.time()*1000)%100000}",
-                  cuda_sources=code, with_cuda=True, verbose=False)
-        if has_pybind:
-            # model supplied its own module binding -> don't let load_inline add a duplicate
-            kw["cpp_sources"] = ""
-        else:
-            kw["cpp_sources"] = "torch::Tensor forward(torch::Tensor input);"
-            kw["functions"] = ["forward"]
-        mod = load_inline(**kw)
-        res["compiled"] = True
-    except Exception as e:
-        res["error"] = str(e)[:160]
-        return res
-    x = torch.randn(4096, 4096, device="cuda")
-    try:
-        y = mod.forward(x); ref = ref_fn(x)
-        res["correct"] = bool(torch.allclose(y, ref, atol=1e-3, rtol=1e-3))
-        res["max_diff"] = float((y - ref).abs().max())
-    except Exception as e:
-        res["error"] = "run: " + str(e)[:140]; return res
-    if res["correct"]:
-        def t(fn):
-            for _ in range(5): fn()
-            torch.cuda.synchronize(); s = time.time()
-            for _ in range(50): fn()
-            torch.cuda.synchronize(); return (time.time() - s) / 50
-        res["speedup"] = t(lambda: ref_fn(x)) / t(lambda: mod.forward(x))
-    return res
+    r = evaluate_kernel(code, ref_fn, name=f"kb_{name.lower()}", timeout=50)
+    r["task"] = name
+    return r
 
 
 def main():

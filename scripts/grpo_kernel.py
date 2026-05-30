@@ -20,14 +20,23 @@ import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from densify.kernel_reward import reward_for_text  # noqa: E402
+from concurrent.futures import ThreadPoolExecutor  # noqa: E402
+from densify.kernel_reward import reward_for_text_isolated  # noqa: E402
 
-SYS = ("You are an expert GPU kernel engineer. Convert PyTorch modules into correct, "
-       "optimized CUDA kernels. Define `torch::Tensor forward(torch::Tensor input)`.")
+SYS = ("You are an expert GPU kernel engineer for PyTorch 2.7 / CUDA 12.8. Write correct CUDA kernels.\n"
+       "- Use `input.scalar_type()` (NOT `input.type()`); dispatch with AT_DISPATCH_FLOATING_TYPES.\n"
+       "- Bounds guard `if (idx < size)`; output = `torch::empty_like(input)`.\n"
+       "- For vectorization use `reinterpret_cast<float4*>(ptr)` (NOT `float4* v = float4* ptr;`).\n"
+       "- Define `torch::Tensor forward(torch::Tensor input)` and end with a PYBIND11_MODULE binding.")
+# Verifiable elementwise tasks (op name must be a key in eval_worker.REFS) — reward
+# is numerical: generated kernel's forward(x) vs PyTorch eager, isolated subprocess.
 TASKS = [
-    ("ReLU", "class Model(nn.Module):\n    def forward(self, x):\n        return torch.relu(x)", torch.relu),
-    ("Square", "class Model(nn.Module):\n    def forward(self, x):\n        return x * x", lambda x: x * x),
-    ("Sigmoid", "class Model(nn.Module):\n    def forward(self, x):\n        return torch.sigmoid(x)", torch.sigmoid),
+    ("relu", "class Model(nn.Module):\n    def forward(self, x):\n        return torch.relu(x)"),
+    ("sigmoid", "class Model(nn.Module):\n    def forward(self, x):\n        return torch.sigmoid(x)"),
+    ("tanh", "class Model(nn.Module):\n    def forward(self, x):\n        return torch.tanh(x)"),
+    ("gelu", "class Model(nn.Module):\n    def forward(self, x):\n        return torch.nn.functional.gelu(x)"),
+    ("silu", "class Model(nn.Module):\n    def forward(self, x):\n        return torch.nn.functional.silu(x)"),
+    ("softplus", "class Model(nn.Module):\n    def forward(self, x):\n        return torch.nn.functional.softplus(x)"),
 ]
 
 
@@ -74,19 +83,20 @@ def main():
 
     start = time.time()
     for step in range(1, a.steps + 1):
-        name, py, ref_fn = TASKS[(step - 1) % len(TASKS)]
+        name, py = TASKS[(step - 1) % len(TASKS)]
         pids = prompt_ids(tok, py, dev)
         plen = pids.shape[1]
         policy.eval()
         with torch.inference_mode():
             gen = policy.generate(pids, do_sample=True, temperature=a.temperature, top_k=20,
                                   num_return_sequences=a.group_size, max_new_tokens=a.max_new_tokens, pad_token_id=9)
-        # reward each sample
-        rewards, results = [], []
-        for g in range(a.group_size):
-            txt = tok.decode(gen[g][plen:], skip_special_tokens=True)
-            rew, res = reward_for_text(txt, ref_fn, name=name.lower())
-            rewards.append(rew); results.append(res)
+        # reward each sample — ISOLATED subprocess per kernel, run in PARALLEL
+        # (a bad kernel can't corrupt the trainer's CUDA context; cold compiles overlap)
+        texts = [tok.decode(gen[g][plen:], skip_special_tokens=True) for g in range(a.group_size)]
+        with ThreadPoolExecutor(max_workers=a.group_size) as ex:
+            out = list(ex.map(lambda gt: reward_for_text_isolated(gt[1], op=name, uniq=f"s{step}g{gt[0]}"),
+                              list(enumerate(texts))))
+        rewards = [o[0] for o in out]; results = [o[1] for o in out]
         rt = torch.tensor(rewards)
         # DAPO dynamic sampling: skip zero-variance groups (no learning signal)
         if rt.std() < 1e-6:
