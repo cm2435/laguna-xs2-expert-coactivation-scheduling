@@ -1,5 +1,8 @@
 # Densification Recovery — Working Notes (Jessica)
 
+📄 **Writeup / report:** [published gist](https://gist.github.com/Jessicacat0305/705104c798d1d4f702ad67ac66c7f76b) · local copy: [`gist-densify-recovery.md`](gist-densify-recovery.md)
+🤗 **Model:** [`Jessicacat0305/laguna-xs2-dense-k8-sft-opencode`](https://huggingface.co/Jessicacat0305/laguna-xs2-dense-k8-sft-opencode)
+
 Running log of the team's evolving plan + my piece. Updated from the team Discord.
 
 ## Big picture
