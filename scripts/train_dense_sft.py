@@ -13,7 +13,7 @@ from typing import Any, Iterable
 import torch
 from datasets import load_dataset
 from torch.optim import AdamW
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedule_with_warmup
 
 DTYPES = {"bfloat16": torch.bfloat16, "float16": torch.float16, "float32": torch.float32}
 
@@ -29,6 +29,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--seq-len", type=int, default=2048)
     p.add_argument("--batch-size", type=int, default=2)
     p.add_argument("--learning-rate", type=float, default=1e-5)
+    p.add_argument("--warmup-steps", type=int, default=-1, help="LR warmup steps; -1 = 3%% of max-steps")
     p.add_argument("--log-every", type=int, default=10)
     p.add_argument("--save-every", type=int, default=100)
     p.add_argument("--max-examples", type=int)
@@ -135,6 +136,8 @@ def main():
     model.train()
 
     optimizer = AdamW(model.parameters(), lr=args.learning_rate)
+    warmup = args.warmup_steps if args.warmup_steps >= 0 else max(10, int(0.03 * args.max_steps))
+    scheduler = get_cosine_schedule_with_warmup(optimizer, warmup, args.max_steps)
     dataset = load_dataset(args.dataset, args.dataset_config, split=args.split, streaming=args.streaming)
     rows = dataset if not args.max_examples else islice(dataset, args.max_examples)
     batches = iter_token_batches(rows, tokenizer, args.seq_len, args.batch_size, args.device)
@@ -143,6 +146,7 @@ def main():
         "model": args.model, "dataset": args.dataset, "split": args.split,
         "seq_len": args.seq_len, "batch_size": args.batch_size,
         "learning_rate": args.learning_rate, "max_steps": args.max_steps,
+        "warmup_steps": warmup, "lr_schedule": "cosine",
         "format": "apply_chat_template",
     }, indent=2) + "\n")
 
@@ -154,8 +158,9 @@ def main():
         loss = sft_loss(model, batch)
         loss.backward()
         optimizer.step()
+        scheduler.step()
         if step == 1 or step % args.log_every == 0:
-            row = {"step": step, "loss": float(loss.detach().cpu()), "elapsed_sec": time.time() - start}
+            row = {"step": step, "loss": float(loss.detach().cpu()), "lr": scheduler.get_last_lr()[0], "elapsed_sec": time.time() - start}
             with metrics_path.open("a") as handle:
                 handle.write(json.dumps(row) + "\n")
             print(json.dumps(row), flush=True)
