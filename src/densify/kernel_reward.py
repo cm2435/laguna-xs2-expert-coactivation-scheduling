@@ -116,6 +116,36 @@ def reward_for_text(text: str, ref_fn, shape=(4096, 4096), name="k") -> tuple[fl
     return shaped_reward(r), r
 
 
+def reward_for_text_isolated(text: str, op: str, dsl: str = "CUDA", uniq: str = "k") -> tuple[float, dict]:
+    """Verifiable reward via the eval_worker SUBPROCESS — a faulty kernel can't
+    corrupt the trainer's CUDA context (required for stable RFT). `op` must be a
+    key in eval_worker.REFS; `uniq` makes the compiled module name unique."""
+    import os
+    import sys
+    import json
+    import tempfile
+    import subprocess
+    import hashlib
+    code = extract_code(text)
+    here = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    worker = os.path.join(here, "scripts", "eval_worker.py")
+    name = f"{op}_{uniq}_{hashlib.md5(code.encode()).hexdigest()[:6]}"
+    with tempfile.TemporaryDirectory() as d:
+        ji, jo = os.path.join(d, "i.json"), os.path.join(d, "o.json")
+        json.dump({"code": code, "dsl": dsl, "op": op, "name": name}, open(ji, "w"))
+        env = dict(os.environ, CUDA_HOME="/usr/local/cuda",
+                   PATH="/usr/local/cuda/bin:" + os.environ.get("PATH", ""),
+                   PYTHONPATH=os.path.join(here, "src"),
+                   TORCH_CUDA_ARCH_LIST="9.0", TORCH_EXTENSIONS_DIR=os.path.join(d, "ext"))
+        try:
+            subprocess.run([sys.executable, worker, "--in", ji, "--out", jo],
+                           env=env, timeout=140, capture_output=True)
+            r = json.load(open(jo)) if os.path.exists(jo) else {"parsed": bool(code), "compiled": False, "correct": False, "error": "worker crashed"}
+        except subprocess.TimeoutExpired:
+            r = {"parsed": bool(code), "compiled": False, "correct": False, "error": "timeout"}
+    return shaped_reward(r), r
+
+
 # ---------------------------------------------------------------------------
 # Triton evaluation: exec generated Python, call forward(x), compare to eager.
 # ---------------------------------------------------------------------------
