@@ -114,3 +114,50 @@ def shaped_reward(r: dict, speedup_cap: float = 3.0) -> float:
 def reward_for_text(text: str, ref_fn, shape=(4096, 4096), name="k") -> tuple[float, dict]:
     r = evaluate_kernel(extract_code(text), ref_fn, shape=shape, name=name)
     return shaped_reward(r), r
+
+
+# ---------------------------------------------------------------------------
+# Triton evaluation: exec generated Python, call forward(x), compare to eager.
+# ---------------------------------------------------------------------------
+def evaluate_triton(code: str, ref_fn, shape=(4096, 4096), atol=1e-3, rtol=1e-3, timeout=40) -> dict:
+    """Run a generated Triton kernel. Expects the code to define `forward(x)`
+    (or a `*_forward`/wrapper) returning the output tensor."""
+    r = {"parsed": ("@triton.jit" in code or "tl." in code), "ran": False,
+         "correct": False, "speedup": None, "max_diff": None, "error": None}
+    if not r["parsed"]:
+        return r
+    import triton  # noqa
+    import triton.language as tl  # noqa
+    ns = {"torch": torch, "triton": triton, "tl": tl}
+    try:
+        with _timed(timeout):
+            exec(code, ns)
+    except _Timeout:
+        r["error"] = "exec timeout"; return r
+    except Exception as e:
+        r["error"] = "exec: " + str(e)[-160:]; return r
+    # find a callable entry point that takes a single tensor
+    fn = None
+    for key in ("forward", "triton_forward", "call", "run"):
+        if callable(ns.get(key)):
+            fn = ns[key]; break
+    if fn is None:
+        cands = [v for k, v in ns.items() if callable(v) and "forward" in k.lower()]
+        fn = cands[0] if cands else None
+    if fn is None:
+        r["error"] = "no forward() entry point"; return r
+    try:
+        x = torch.randn(*shape, device="cuda")
+        with _timed(timeout):
+            y = fn(x)
+        if not torch.is_tensor(y):
+            r["error"] = "forward did not return a tensor"; return r
+        r["ran"] = True
+        ref = ref_fn(x)
+        r["max_diff"] = float((y - ref).abs().max())
+        r["correct"] = bool(torch.allclose(y, ref, atol=atol, rtol=rtol))
+    except _Timeout:
+        r["error"] = "run timeout"; return r
+    except Exception as e:
+        r["error"] = "run: " + str(e)[-160:]; return r
+    return r
